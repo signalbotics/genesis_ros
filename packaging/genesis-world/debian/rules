@@ -9,7 +9,11 @@ PREFIX      := /opt/genesis
 VENV        := $(CURDIR)/debian/genesis-world$(PREFIX)/venv
 # GENESIS_SRC must be set in the environment by packaging/build-all.sh and
 # must point at the Genesis engine source tree (pyproject.toml + genesis/).
+# We stage a writable copy under SRC_STAGE because pip/setuptools needs to
+# create genesis_world.egg-info/ during build, which would fail on a
+# read-only bind mount or clutter the user's upstream checkout.
 REPO_ROOT   := $(GENESIS_SRC)
+SRC_STAGE   := $(CURDIR)/debian/.genesis-src
 
 %:
 	dh $@
@@ -29,8 +33,14 @@ override_dh_auto_install:
 	# `import torch` works out of the box. Default PyPI wheel ships with CUDA
 	# 13 runtime; works on NVIDIA driver >= 550.
 	$(VENV)/bin/pip install torch
-	# Then install genesis-world from this checkout.
-	$(VENV)/bin/pip install $(REPO_ROOT)
+	# Stage Genesis source into a writable dir (setuptools wants to create
+	# egg-info during build; the upstream checkout may be read-only).
+	rm -rf $(SRC_STAGE)
+	mkdir -p $(SRC_STAGE)
+	cp -a $(REPO_ROOT)/. $(SRC_STAGE)/
+	# Install genesis-world from the staged copy.
+	$(VENV)/bin/pip install $(SRC_STAGE)
+	rm -rf $(SRC_STAGE)
 	# Strip the absolute build path out of the venv so it runs from /opt/genesis.
 	$(VENV)/bin/python -c "import subprocess,sys; subprocess.check_call([sys.executable, '-m', 'pip', 'check'])" || true
 	# Rewrite shebangs from the build dir to /opt/genesis/venv.
