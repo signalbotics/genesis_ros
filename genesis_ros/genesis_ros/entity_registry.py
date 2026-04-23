@@ -97,6 +97,7 @@ class EntityRecord:
     cameras: Dict[str, Tuple[Any, Optional[str]]] = field(default_factory=dict)
     is_mobile_base: bool = False
     cmd_vel_cfg: Optional[dict] = None
+    ground_truth: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -390,6 +391,7 @@ class EntityRegistry:
         is_mobile_base: bool = False,
         cmd_vel_cfg: Optional[dict] = None,
         base_link: Optional[str] = None,
+        ground_truth: bool = False,
         **_unused: Any,
     ) -> EntityRecord:
         """Register ``entity`` under ``name`` and return its record.
@@ -421,6 +423,7 @@ class EntityRegistry:
             is_mobile_base=bool(is_mobile_base),
             cmd_vel_cfg=dict(cmd_vel_cfg) if cmd_vel_cfg else None,
             base_link_name=base_link,
+            ground_truth=bool(ground_truth),
         )
 
         if urdf_xml:
