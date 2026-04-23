@@ -50,6 +50,15 @@ def _parse_args(argv):
             "overridden at runtime by publishing to /genesis/set_rtf."
         ),
     )
+    parser.add_argument(
+        "--clock-decimation",
+        type=int,
+        default=1,
+        help=(
+            "Publish /clock every Nth physics tick (default: 1 = every tick)."
+            " Higher values reduce DDS back-pressure on high-rate scenes."
+        ),
+    )
     # ros2 run appends --ros-args ...; tolerate unknowns and let rclpy.init
     # pick them up implicitly.
     args, _ros_extra = parser.parse_known_args(argv)
@@ -94,8 +103,21 @@ def main(argv=None):
         )
     except Exception:
         pass
+    try:
+        clock_decimation = int(
+            bridge.node.declare_parameter(
+                "clock_decimation", int(args.clock_decimation)
+            ).value
+        )
+    except Exception:
+        clock_decimation = int(args.clock_decimation)
     bridge.register_publisher(
-        ClockPublisher(bridge.node, scene, bridge.registry, cfg={})
+        ClockPublisher(
+            bridge.node,
+            scene,
+            bridge.registry,
+            cfg={"clock_decimation": max(1, clock_decimation)},
+        )
     )
     bridge.register_service(
         SimControlService(bridge.node, scene, bridge)
