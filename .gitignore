@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# ROS 2 / ament_python
+install/
+log/
+
+# Debian packaging artifacts
+/out/
+packaging/out/
+packaging/.pip-cache/
+packaging/*/debian/changelog
+packaging/*/debian/*.substvars
+packaging/*/debian/files
+packaging/*/debian/.debhelper/
+packaging/*/debian/debhelper-build-stamp
+packaging/*/debian/genesis-world/
+packaging/*/debian/genesis-world-assets/
+packaging/*/debian/ros-jazzy-genesis-ros/
+packaging/*/debian/tmp/
+
+# Editors
+.vscode/
+.idea/
+*.swp
+.DS_Store
