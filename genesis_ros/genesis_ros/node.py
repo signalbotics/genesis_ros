@@ -82,6 +82,7 @@ class GenesisRosBridge:
         node_name: str = "genesis_bridge",
         env_idx: int = 0,
         use_sim_time: bool = True,
+        rtf_target: Optional[float] = None,
     ) -> None:
         # Lazy import -- ``import genesis_ros.node`` must not fail on boxes
         # without the ROS 2 stack installed (unit tests / CI without rclpy).
@@ -130,6 +131,15 @@ class GenesisRosBridge:
         self.rtf: float = 1.0
         self._rtf_alpha: float = 0.1
         self._last_wall_time: Optional[float] = None
+
+        # RTF throttle. None (or <=0) means "run as fast as possible". A
+        # positive float N caps wall-clock so ``wall_dt_per_tick >= scene.dt/N``
+        # -- i.e. the sim advances no faster than N times real time.
+        # set_rtf_target() mutates this from the rclpy executor thread;
+        # python float assignment is atomic under the GIL so we do not lock.
+        self.rtf_target: Optional[float] = (
+            float(rtf_target) if rtf_target and rtf_target > 0 else None
+        )
 
         # Cooperative pause / step credits. services/sim_control.py flips
         # these from its service callbacks on the rclpy executor thread;
@@ -215,6 +225,18 @@ class GenesisRosBridge:
         for the lifetime of the bridge."""
         with self._lock:
             self._services.append(cb)
+
+    # ---------------------------------------------------------- RTF control
+    def set_rtf_target(self, value: Optional[float]) -> None:
+        """Set the real-time-factor cap. ``None`` / ``<= 0`` disables it."""
+        if value is None:
+            self.rtf_target = None
+            return
+        try:
+            v = float(value)
+        except (TypeError, ValueError):
+            return
+        self.rtf_target = v if v > 0.0 else None
 
     # -------------------------------------------------------------- sim time
     def current_sim_time(self):
@@ -320,6 +342,19 @@ class GenesisRosBridge:
         wall_end = time.perf_counter()
         wall_dt = wall_end - wall_start
         sim_dt = float(self.scene.dt)
+
+        # RTF throttle. Sleep just enough so this iteration's wall time
+        # matches (scene.dt / rtf_target). If the sim already ran slower
+        # than that budget, the sleep is 0.
+        target = self.rtf_target
+        if target and target > 0.0 and sim_dt > 0.0:
+            budget = sim_dt / target
+            leftover = budget - wall_dt
+            if leftover > 0.0:
+                time.sleep(leftover)
+                wall_end = time.perf_counter()
+                wall_dt = wall_end - wall_start
+
         if sim_dt > 0.0 and wall_dt > 0.0:
             sample = wall_dt / sim_dt
             instantaneous = 1.0 / sample if sample > 0 else 1.0

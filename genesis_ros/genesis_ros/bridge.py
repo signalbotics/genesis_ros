@@ -41,6 +41,15 @@ def _parse_args(argv):
         action="store_true",
         help="Do not set use_sim_time=True on the bridge node.",
     )
+    parser.add_argument(
+        "--rtf-target",
+        type=float,
+        default=None,
+        help=(
+            "Cap wall-clock real-time factor (default: unthrottled). Can be "
+            "overridden at runtime by publishing to /genesis/set_rtf."
+        ),
+    )
     # ros2 run appends --ros-args ...; tolerate unknowns and let rclpy.init
     # pick them up implicitly.
     args, _ros_extra = parser.parse_known_args(argv)
@@ -75,7 +84,16 @@ def main(argv=None):
         node_name=args.node_name,
         env_idx=args.env_idx,
         use_sim_time=not args.no_sim_time,
+        rtf_target=args.rtf_target,
     )
+    # Expose rtf_target as a ROS parameter so it shows up in ros2 param
+    # list and can be set from launch files. CLI flag wins if both given.
+    try:
+        bridge.node.declare_parameter(
+            "rtf_target", float(args.rtf_target) if args.rtf_target else 0.0
+        )
+    except Exception:
+        pass
     bridge.register_publisher(
         ClockPublisher(bridge.node, scene, bridge.registry, cfg={})
     )

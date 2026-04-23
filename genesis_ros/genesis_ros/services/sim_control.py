@@ -23,9 +23,11 @@ from __future__ import annotations
 try:
     import rclpy  # noqa: F401
     from rclpy.node import Node  # noqa: F401
+    from std_msgs.msg import Float64 as _Float64
     _ROS_AVAILABLE = True
 except ImportError:
     _ROS_AVAILABLE = False
+    _Float64 = None  # type: ignore[assignment]
 
 import threading
 
@@ -98,6 +100,14 @@ class SimControlService:
         self._reset_srv = node.create_service(
             reset_t, "/genesis/reset", self._on_reset
         )
+        # /genesis/set_rtf: publish a std_msgs/Float64 to cap the real-time
+        # factor. Non-positive values disable the cap (run as fast as
+        # possible). Using a topic rather than a service matches the
+        # existing /genesis/rtf Float64 state publisher for symmetry.
+        if _Float64 is not None:
+            self._set_rtf_sub = node.create_subscription(
+                _Float64, "/genesis/set_rtf", self._on_set_rtf, 10
+            )
 
     # ---------------------------------------------------------- helpers
     @staticmethod
@@ -147,6 +157,14 @@ class SimControlService:
             success=True,
             message="queued " + str(n_int) + " step(s)",
         )
+
+    def _on_set_rtf(self, msg) -> None:
+        value = float(getattr(msg, "data", 0.0) or 0.0)
+        setter = getattr(self.bridge, "set_rtf_target", None)
+        if callable(setter):
+            setter(value if value > 0.0 else None)
+        else:
+            setattr(self.bridge, "rtf_target", value if value > 0.0 else None)
 
     def _on_reset(self, request, response):
         scene = self.scene
