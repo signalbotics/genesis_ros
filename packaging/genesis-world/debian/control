@@ -1,0 +1,26 @@
+Source: genesis-world
+Section: science
+Priority: optional
+Maintainer: Genesis Packaging <packaging@example.com>
+Build-Depends: debhelper-compat (= 13), python3.12, python3.12-venv, python3-pip
+Standards-Version: 4.6.2
+Homepage: https://github.com/Genesis-Embodied-AI/Genesis
+
+Package: genesis-world
+Architecture: amd64
+Depends:
+ ${misc:Depends},
+ python3.12,
+ libpython3.12-stdlib,
+ libgl1,
+ libglib2.0-0,
+ libvulkan1,
+ libegl1,
+ libgomp1
+Recommends: genesis-world-assets, nvidia-driver-550 | nvidia-driver-555 | nvidia-driver-560 | nvidia-driver-570
+Description: Genesis physics simulator (vendored Python environment)
+ Genesis is a GPU-accelerated physics engine and rendering platform for
+ robotics and embodied-AI research. This package ships a self-contained
+ Python virtual environment under /opt/genesis/venv, containing torch,
+ taichi, and the genesis-world engine pinned to the packaged git revision.
+ A thin wrapper /usr/bin/genesis launches the vendored interpreter.

@@ -1,0 +1,15 @@
+Source: genesis-world-assets
+Section: science
+Priority: optional
+Maintainer: Genesis Packaging <packaging@example.com>
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.6.2
+Homepage: https://github.com/Genesis-Embodied-AI/Genesis
+
+Package: genesis-world-assets
+Architecture: all
+Depends: ${misc:Depends}
+Description: URDF, mesh, and texture assets for the Genesis simulator
+ Ships the contents of genesis/assets/ under /opt/genesis/assets/.
+ Split out from genesis-world to keep the engine package small; headless
+ CI and server installs can skip this package.

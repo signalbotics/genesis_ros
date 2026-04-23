@@ -1,0 +1,7 @@
+Origin: Genesis
+Label: Genesis
+Codename: noble
+Suite: stable
+Architectures: amd64 all source
+Components: main
+Description: Genesis simulator Debian packages for Ubuntu 24.04 (Noble) / ROS 2 Jazzy

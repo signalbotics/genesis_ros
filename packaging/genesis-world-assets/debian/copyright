@@ -1,0 +1,9 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: genesis-world-assets
+Source: https://github.com/Genesis-Embodied-AI/Genesis
+
+Files: *
+Copyright: Assorted upstream contributors (see per-asset LICENSE files)
+License: various
+ Assets are redistributed under their original licenses; consult
+ /opt/genesis/assets/ subdirectories for per-asset notices.

@@ -1,0 +1,15 @@
+#!/usr/bin/make -f
+export DH_VERBOSE = 1
+REPO_ROOT := $(GENESIS_SRC)
+DEST      := $(CURDIR)/debian/genesis-world-assets/opt/genesis/assets
+
+%:
+	dh $@
+
+override_dh_auto_configure:
+override_dh_auto_build:
+override_dh_auto_test:
+
+override_dh_auto_install:
+	mkdir -p $(DEST)
+	cp -a $(REPO_ROOT)/genesis/assets/. $(DEST)/

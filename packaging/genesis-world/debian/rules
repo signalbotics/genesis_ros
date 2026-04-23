@@ -1,0 +1,65 @@
+#!/usr/bin/make -f
+# Vendored-venv build: we do NOT use dh_python3 because we ship a
+# self-contained /opt/genesis/venv instead of installing into the system
+# Python site-packages.
+
+export DH_VERBOSE = 1
+
+PREFIX      := /opt/genesis
+VENV        := $(CURDIR)/debian/genesis-world$(PREFIX)/venv
+# GENESIS_SRC must be set in the environment by packaging/build-all.sh and
+# must point at the Genesis engine source tree (pyproject.toml + genesis/).
+REPO_ROOT   := $(GENESIS_SRC)
+
+%:
+	dh $@
+
+override_dh_auto_configure:
+override_dh_auto_build:
+override_dh_auto_test:
+
+override_dh_auto_install:
+	# Create the vendored venv using Python 3.12 (Noble's default).
+	# We do NOT bundle the stdlib — rely on the system libpython3.12-stdlib
+	# package (declared in Depends) so the venv's interpreter can find it.
+	python3.12 -m venv --copies $(VENV)
+	$(VENV)/bin/pip install --upgrade pip wheel setuptools
+	# Torch is intentionally not declared by genesis-world's pyproject.toml
+	# (see upstream README — it's CUDA-version specific). Install it first so
+	# `import torch` works out of the box. Default PyPI wheel ships with CUDA
+	# 13 runtime; works on NVIDIA driver >= 550.
+	$(VENV)/bin/pip install torch
+	# Then install genesis-world from this checkout.
+	$(VENV)/bin/pip install $(REPO_ROOT)
+	# Strip the absolute build path out of the venv so it runs from /opt/genesis.
+	$(VENV)/bin/python -c "import subprocess,sys; subprocess.check_call([sys.executable, '-m', 'pip', 'check'])" || true
+	# Rewrite shebangs from the build dir to /opt/genesis/venv.
+	grep -rlI "$(VENV)" $(VENV)/bin 2>/dev/null | xargs -r sed -i "s|$(VENV)|$(PREFIX)/venv|g"
+	# Wrapper + desktop wiring.
+	install -Dm755 $(CURDIR)/wrapper/genesis \
+	    $(CURDIR)/debian/genesis-world/usr/bin/genesis
+	# Expose the vendored venv's site-packages to the system Python so
+	# packages like genesis_ros (installed into ROS's site-packages under
+	# /opt/ros/jazzy/...) can `import genesis`. Requires the system python3
+	# to be 3.12 (enforced via Depends: python3.12).
+	install -d $(CURDIR)/debian/genesis-world/usr/lib/python3/dist-packages
+	# Use the site-module `import` form so the venv path is PREPENDED to
+	# sys.path; otherwise the system _cffi_backend shadows the venv's, and
+	# similar C-extension clashes trigger "Version mismatch" errors.
+	echo "import sys; sys.path.insert(0, '/opt/genesis/venv/lib/python3.12/site-packages')" > \
+	    $(CURDIR)/debian/genesis-world/usr/lib/python3/dist-packages/genesis-venv.pth
+
+override_dh_shlibdeps:
+	# The venv bundles torch/taichi .so files we can't resolve against system
+	# libs — skip shlibdeps for the venv tree.
+	dh_shlibdeps -Xgenesis/venv
+
+override_dh_strip:
+	dh_strip -Xgenesis/venv
+
+override_dh_dwz:
+	# Wheel .so files have stripped/odd debug sections; skip dwz for the venv.
+	dh_dwz -Xgenesis/venv
+
+override_dh_fixperms:
+	dh_fixperms -Xgenesis/venv/bin

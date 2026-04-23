@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# /usr/bin/genesis — runs the vendored Python interpreter that has the
+# genesis-world + torch stack installed. Genesis itself has no CLI, so this
+# is a passthrough: `genesis script.py`, `genesis -c 'import genesis; ...'`,
+# or bare `genesis` for an interactive REPL.
+exec /opt/genesis/venv/bin/python "$@"

@@ -1,0 +1,12 @@
+#!/bin/sh
+set -e
+case "$1" in
+    configure)
+        # Byte-compile the vendored venv for faster cold starts.
+        if [ -x /opt/genesis/venv/bin/python ]; then
+            /opt/genesis/venv/bin/python -m compileall -q /opt/genesis/venv/lib || true
+        fi
+        ;;
+esac
+#DEBHELPER#
+exit 0
