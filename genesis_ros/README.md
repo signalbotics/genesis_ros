@@ -6,18 +6,23 @@ no external bridge. Surface area matches Gazebo's `gz_ros2_control` and
 Isaac Sim's `isaacsim.ros2.bridge`.
 
 - **Publishers:** `/clock`, `/genesis/rtf`, `/tf`, `/tf_static`,
-  `/{robot}/joint_states`, `/{robot}/odom`, cameras
-  (`Image`/`CameraInfo`/depth/`PointCloud2`/segmentation), IMU, contact
-  wrenches, proximity `Range`, `Temperature`, raycaster
+  `/{robot}/joint_states`, `/{robot}/odom`, `/{robot}/pose_ground_truth`,
+  cameras (`Image`/`CameraInfo`/depth/`PointCloud2`/segmentation), IMU,
+  contact wrenches, proximity `Range`, `Temperature`, raycaster
   (`LaserScan`/`PointCloud2`/`Range`).
-- **Subscribers:** `/{robot}/cmd_vel` (free-base + differential-drive).
-- **Services:** `/genesis/{pause,resume,step,reset,spawn_urdf,delete_entity,set_entity_state,get_entity_state}` —
+- **Subscribers:** `/{robot}/cmd_vel` (free-base + differential-drive),
+  `/genesis/set_rtf` (`std_msgs/Float64`, caps real-time factor).
+- **Services:**
+  `/genesis/{pause,resume,step,reset,spawn_urdf,delete_entity,set_entity_state,get_entity_state,set_gravity,set_physics_properties}` —
   `simulation_interfaces` (REP-2015) types when installed, `std_srvs/Trigger`
   fallback otherwise.
 - **Actions:** `/{robot}/follow_joint_trajectory`
   (`control_msgs/action/FollowJointTrajectory`).
 - **`ros2_control`:** topic-based via `topic_based_ros2_control`, auto-wired
   from the URDF's `<ros2_control>` block.
+- **Bridge params (`ros2 param set /genesis_bridge <k> <v>`):** `rtf_target`
+  (real-time-factor cap, `0.0` = unthrottled), `clock_decimation` (publish
+  `/clock` every Nth physics tick, default `1`).
 
 ## Execution model (Isaac-style, in-process)
 
@@ -96,6 +101,40 @@ Environment knobs:
 | `GENESIS_HEADLESS=1` | Suppress the viewer |
 | `GENESIS_VIEWER_FPS=<n>` | Cap viewer at N Hz (default: uncapped) |
 | `TURTLEBOT_URDF=/path/to/urdf` | Use a real TurtleBot URDF instead of the box fallback |
+
+Bridge CLI flags (append to `ros2 run genesis_ros genesis_bridge`):
+
+| Flag | Effect |
+|---|---|
+| `--rtf-target N` | Cap wall-clock to N real-time factor (default: unthrottled) |
+| `--clock-decimation N` | Publish `/clock` every Nth physics tick (default: 1) |
+| `--env-idx I` | Expose env `I` when `scene.n_envs > 1` (default: 0) |
+| `--no-sim-time` | Do not set `use_sim_time=True` on the bridge node |
+
+Sim-control cookbook (works on any running `genesis_bridge`):
+
+```bash
+# Pause / resume the sim.
+ros2 service call /genesis/pause   std_srvs/srv/Trigger '{}'
+ros2 service call /genesis/resume  std_srvs/srv/Trigger '{}'
+
+# Advance N steps while paused (cooperative counter).
+ros2 service call /genesis/step simulation_interfaces/srv/StepSimulation \
+    '{n_steps: 10}'
+# (std_srvs/Trigger fallback: one step per call.)
+
+# Cap the real-time factor at 0.5x; set to 0 to un-throttle.
+ros2 topic pub --once /genesis/set_rtf std_msgs/msg/Float64 'data: 0.5'
+
+# Change gravity at runtime.
+ros2 param set /genesis_bridge set_gravity.args '{"gravity": [0, 0, -3.71]}'
+ros2 service call /genesis/set_gravity std_srvs/srv/Trigger '{}'
+
+# Spawn a URDF (entity addition is deferred until the next reset if the
+# scene is already built).
+ros2 launch genesis_ros spawn_entity.launch.py \
+    name:=cube urdf_path:=/tmp/cube.urdf x:=0.5 z:=0.5
+```
 
 Launch files also ship (`launch/franka.launch.py`, `go2.launch.py`,
 `turtlebot.launch.py`) for full RViz + controller_manager setups. Expected
@@ -310,17 +349,44 @@ GPU backend (try `GENESIS_BACKEND=cpu`), `simulation_interfaces` is missing
 
 ---
 
-## Limitations
+## Known gaps vs Gazebo (`gz_ros2_control`)
 
-- **No soft-body ROS messages yet.** MPM/FEM/SPH/PBD solvers run fine in
-  Genesis, but no standard ROS message type captures deformable-body state.
-  A custom `genesis_msgs` package is out of scope for v1.
+These are scoped and tracked in `ROS2_INTEGRATION_PLAN.md` under Tier B / C.
+Not blockers for typical ROS 2 workflows; listed up front so you hit
+them before they bite.
+
+- **Post-build `dt` / `substeps` are immutable.** `/genesis/set_physics_properties`
+  can change gravity live, but the timestep and substep count are fixed
+  once `scene.build()` runs. Rebuild the scene (or call `/genesis/reset`
+  with a fresh config) to change them.
+- **No soft-body ROS messages.** MPM / FEM / SPH / PBD solvers run fine
+  in Genesis, but no standard ROS message type captures deformable-body
+  state. A custom `genesis_msgs` package is out of scope for v1.
+- **No native C++ `hardware_interface::SystemInterface` plugin.** v1 stops
+  at community `topic_based_ros2_control`. A native `GenesisSystem` that
+  bypasses the topic hop is future work (Tier C) — relevant only for
+  1 kHz+ control loops where topic latency starts to matter.
+- **No joint-level force/torque sensor publisher yet** (Tier B-8). Contact
+  wrenches on links are supported; joint F/T needs separate kinematics.
+- **No stereo-camera paired publisher** (Tier B-9). Two cameras can be
+  registered separately; shared-stamp stereo pairs are follow-up.
+- **`<mimic>` joint handling unverified** (Tier B-11). Should work via
+  qpos, but TF / joint_states have not been runtime-tested against a URDF
+  that uses `<mimic>`.
+- **No SDF import** (Tier C-14). URDF / xacro only. Gazebo worlds need
+  hand-translation to URDF.
+- **Single-environment bridge.** When `scene.n_envs > 1`, only `env_idx`
+  (default 0) is published. Parallel-env publishing is on the roadmap.
+- **Gazebo plugin ABI not supported.** The `gz-sim` plugin API is its
+  own ecosystem and is not in scope.
+- **No buoyancy / hydrodynamics / wind / aerodynamics** — these need
+  engine-level additions upstream in Genesis itself.
+- **No GUI-interactive editing.** Genesis's pyrender viewer does not
+  support force / teleport widgets; a viewer rewrite would be needed.
+
+## Platform & ecosystem limits
+
 - **ROS 1 unsupported.** Bridge is `rclpy`-only; ROS 1 would need a
   separate `ros1_bridge` hop that we don't provide.
 - **Windows unsupported.** `rclpy` and `topic_based_ros2_control` are
   first-class only on Linux.
-- **Native C++ `SystemInterface` deferred.** v1 stops at
-  `topic_based_ros2_control`. A native `GenesisSystem` that bypasses the
-  topic hop is future work.
-- **Single-environment bridge.** When `scene.n_envs > 1`, only `env_idx=0`
-  is published. Parallel-env publishing is on the roadmap.
