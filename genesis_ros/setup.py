@@ -74,6 +74,7 @@ setup(
             "franka_demo = genesis_ros.examples.franka_scene:main",
             "go2_demo = genesis_ros.examples.go2_scene:main",
             "turtlebot_demo = genesis_ros.examples.turtlebot_scene:main",
+            "sensor_demo = genesis_ros.examples.sensor_demo:main",
         ],
     },
 )

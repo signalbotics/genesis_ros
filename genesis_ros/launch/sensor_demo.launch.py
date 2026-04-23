@@ -1,0 +1,121 @@
+"""Launch the sensor-heavy demo with RViz preloaded.
+
+Starts ``examples/sensor_demo.py`` (Genesis scene + ``genesis_bridge`` in
+process), ``robot_state_publisher`` loading the Franka URDF, and RViz
+with a config that shows the wrist camera, lidar point cloud, IMU, TF,
+and contacts.
+"""
+import os
+
+from launch import LaunchDescription
+from launch.actions import DeclareLaunchArgument, ExecuteProcess, OpaqueFunction
+from launch.conditions import IfCondition
+from launch.substitutions import LaunchConfiguration
+from launch_ros.actions import Node
+
+try:
+    from ament_index_python.packages import get_package_share_directory
+except Exception:  # pragma: no cover
+    get_package_share_directory = None
+
+
+_URDF_SUBPATH = "urdf/panda_bullet/panda.urdf"
+_URDF_CANDIDATES = [
+    os.path.join(os.environ.get("GENESIS_ASSETS", "/nonexistent"), _URDF_SUBPATH),
+    os.path.join("/opt/genesis/assets", _URDF_SUBPATH),
+    os.path.abspath(os.path.join(
+        os.path.dirname(__file__), "..", "..", "..",
+        "Genesis", "genesis", "assets", _URDF_SUBPATH,
+    )),
+]
+DEFAULT_URDF = next(
+    (p for p in _URDF_CANDIDATES if os.path.isfile(p)),
+    os.path.join("/opt/genesis/assets", _URDF_SUBPATH),
+)
+
+
+def _pkg_share():
+    if get_package_share_directory is not None:
+        try:
+            return get_package_share_directory("genesis_ros")
+        except Exception:
+            pass
+    return os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
+
+
+def _robot_state_publisher(context, *_args, **_kwargs):
+    path = LaunchConfiguration("urdf_path").perform(context)
+    if not path or not os.path.isfile(path):
+        return []
+    with open(path, "r") as fh:
+        robot_description = fh.read()
+    use_sim_time = (
+        LaunchConfiguration("use_sim_time").perform(context).lower() in ("1", "true")
+    )
+    return [Node(
+        package="robot_state_publisher",
+        executable="robot_state_publisher",
+        name="robot_state_publisher",
+        namespace="franka",
+        output="screen",
+        parameters=[{
+            "robot_description": robot_description,
+            "use_sim_time": use_sim_time,
+        }],
+    )]
+
+
+def generate_launch_description():
+    pkg_share = _pkg_share()
+    default_rviz = os.path.join(pkg_share, "config", "rviz", "sensor_demo.rviz")
+    default_scene = os.path.join(pkg_share, "examples", "sensor_demo.py")
+
+    args = [
+        DeclareLaunchArgument(
+            "urdf_path",
+            default_value=DEFAULT_URDF,
+            description="Absolute path to the Franka URDF.",
+        ),
+        DeclareLaunchArgument(
+            "rviz_config",
+            default_value=default_rviz,
+            description="RViz config file for the sensor demo.",
+        ),
+        DeclareLaunchArgument(
+            "scene_path",
+            default_value=default_scene,
+            description="Python scene file to run.",
+        ),
+        DeclareLaunchArgument(
+            "use_sim_time",
+            default_value="true",
+            description="Use /clock time source.",
+        ),
+        DeclareLaunchArgument(
+            "rviz",
+            default_value="true",
+            description="Whether to launch RViz.",
+        ),
+    ]
+
+    scene_proc = ExecuteProcess(
+        cmd=["python3", LaunchConfiguration("scene_path")],
+        name="sensor_demo_scene",
+        output="screen",
+    )
+
+    rviz_node = Node(
+        package="rviz2",
+        executable="rviz2",
+        name="rviz2",
+        output="screen",
+        arguments=["-d", LaunchConfiguration("rviz_config")],
+        parameters=[{"use_sim_time": LaunchConfiguration("use_sim_time")}],
+        condition=IfCondition(LaunchConfiguration("rviz")),
+    )
+
+    return LaunchDescription(args + [
+        OpaqueFunction(function=_robot_state_publisher),
+        scene_proc,
+        rviz_node,
+    ])

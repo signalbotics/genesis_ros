@@ -92,6 +92,9 @@ ros2 run genesis_ros genesis_bridge     # empty scene — just /clock
 ros2 run genesis_ros franka_demo        # Franka Panda arm + GUI
 ros2 run genesis_ros go2_demo           # Unitree Go2 quadruped + GUI
 ros2 run genesis_ros turtlebot_demo     # Diff-drive base (or custom URDF)
+ros2 run genesis_ros sensor_demo        # Franka in a kitchen with ALL sensors live
+# or with RViz preloaded:
+ros2 launch genesis_ros sensor_demo.launch.py
 ```
 
 Environment knobs:
@@ -149,6 +152,14 @@ behaviour of each:
 - **turtlebot**: 2D lidar on `/turtlebot/lidar/scan`; `/turtlebot/odom`
   updates when you publish `/turtlebot/cmd_vel`; TF chain
   `world → turtlebot/odom → turtlebot/base_link`.
+- **sensor_demo**: fixed Franka in a primitives-built kitchen (walls,
+  workbench, fridge, pillar, tabletop props). Exercises every sensor
+  publisher: wrist RGB+depth camera on `/franka/wrist_cam/*`, EE IMU on
+  `/franka/imu`, EE proximity probe on `/franka/ee_proximity`, base
+  spherical lidar on `/franka/lidar/points`, per-link contact wrenches
+  on `/franka/contacts/*`, ground-truth pose on
+  `/franka/pose_ground_truth`. The arm sweeps in a circle so every
+  topic updates.
 
 ---
 
