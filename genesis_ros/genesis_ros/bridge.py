@@ -16,6 +16,7 @@ from typing import Optional, Sequence
 from .node import GenesisRosBridge
 from .publishers.clock import ClockPublisher
 from .services.sim_control import SimControlService
+from .services.physics import PhysicsService
 
 
 def _parse_args(argv):
@@ -121,6 +122,9 @@ def main(argv=None):
     )
     bridge.register_service(
         SimControlService(bridge.node, scene, bridge)
+    )
+    bridge.register_service(
+        PhysicsService(bridge.node, scene, bridge)
     )
     bridge.spin()
     return 0
