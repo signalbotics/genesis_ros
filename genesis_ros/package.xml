@@ -1,0 +1,43 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>genesis_ros</name>
+  <version>0.1.0</version>
+  <description>
+    ROS 2 bridge for the Genesis physics simulator. Publishes /clock, /tf,
+    /joint_states, sensor topics, and drives the sim from /cmd_vel,
+    FollowJointTrajectory actions, and simulation control services. Runs
+    in-process with rclpy (Isaac-style), no external bridge process.
+  </description>
+  <maintainer email="bruk@signalbotics.com">Genesis ROS Maintainers</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_python</buildtool_depend>
+
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>nav_msgs</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>std_srvs</exec_depend>
+  <exec_depend>tf2_ros</exec_depend>
+  <exec_depend>rosgraph_msgs</exec_depend>
+  <exec_depend>builtin_interfaces</exec_depend>
+  <exec_depend>control_msgs</exec_depend>
+  <exec_depend>cv_bridge</exec_depend>
+  <exec_depend>robot_state_publisher</exec_depend>
+  <exec_depend>xacro</exec_depend>
+
+  <!-- Optional community packages; rosdep may not resolve them on older distros. -->
+  <exec_depend>simulation_interfaces</exec_depend>
+  <exec_depend>topic_based_ros2_control</exec_depend>
+
+  <test_depend>ament_copyright</test_depend>
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>ament_pep257</test_depend>
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>
