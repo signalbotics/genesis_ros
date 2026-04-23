@@ -131,6 +131,14 @@ class GenesisRosBridge:
         self._rtf_alpha: float = 0.1
         self._last_wall_time: Optional[float] = None
 
+        # Cooperative pause / step credits. services/sim_control.py flips
+        # these from its service callbacks on the rclpy executor thread;
+        # _run_one_iteration observes them on the main thread to decide
+        # whether to advance scene.step(). Kept as plain attributes because
+        # bool / int assignment is atomic under the GIL.
+        self._paused: bool = False
+        self._step_remaining: int = 0
+
         self._shutdown: bool = False
         self._sigint_installed: bool = False
 
@@ -273,6 +281,17 @@ class GenesisRosBridge:
     def _run_one_iteration(self) -> None:
         """Execute exactly one simulator tick. Exposed for tests."""
         wall_start = time.perf_counter()
+
+        # Pause gate. If paused and no step credits queued, sleep briefly so
+        # we do not busy-loop the main thread, then return without advancing
+        # sim time -- /clock stays frozen at the current stamp, which is
+        # exactly what clients expect from /genesis/pause.
+        if self._paused and self._step_remaining <= 0:
+            time.sleep(0.005)
+            return
+        if self._paused and self._step_remaining > 0:
+            # Consume exactly one step credit per iteration.
+            self._step_remaining -= 1
 
         with self._lock:
             subs = list(self._subscribers)

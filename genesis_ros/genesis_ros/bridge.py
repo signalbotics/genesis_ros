@@ -15,6 +15,7 @@ from typing import Optional, Sequence
 
 from .node import GenesisRosBridge
 from .publishers.clock import ClockPublisher
+from .services.sim_control import SimControlService
 
 
 def _parse_args(argv):
@@ -77,6 +78,9 @@ def main(argv=None):
     )
     bridge.register_publisher(
         ClockPublisher(bridge.node, scene, bridge.registry, cfg={})
+    )
+    bridge.register_service(
+        SimControlService(bridge.node, scene, bridge)
     )
     bridge.spin()
     return 0
