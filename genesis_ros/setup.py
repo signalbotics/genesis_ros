@@ -34,15 +34,17 @@ def _data_files():
         for rel_dir, paths in grouped.items():
             entries.append((os.path.join("share", package_name, rel_dir), paths))
 
-    # Collect config files (yaml, rviz, urdf, etc.).
-    config_dir = "config"
-    config_files = [
-        f for f in glob(os.path.join(config_dir, "**", "*"), recursive=True)
-        if os.path.isfile(f)
-    ]
-    if config_files:
-        grouped = {}
-        for f in config_files:
+    # Collect config + urdf (xacro) files as share data so launches can
+    # resolve them via get_package_share_directory("genesis_ros").
+    for sub_dir in ("config", "urdf"):
+        files = [
+            f for f in glob(os.path.join(sub_dir, "**", "*"), recursive=True)
+            if os.path.isfile(f)
+        ]
+        if not files:
+            continue
+        grouped: dict = {}
+        for f in files:
             rel_dir = os.path.dirname(f)
             grouped.setdefault(rel_dir, []).append(f)
         for rel_dir, paths in grouped.items():
@@ -73,7 +75,10 @@ setup(
             "genesis_bridge = genesis_ros.bridge:main",
             "franka_demo = genesis_ros.examples.franka_scene:main",
             "go2_demo = genesis_ros.examples.go2_scene:main",
-            "turtlebot_demo = genesis_ros.examples.turtlebot_scene:main",
+            "anymal_demo = genesis_ros.examples.anymal_scene:main",
+            "kuka_demo = genesis_ros.examples.kuka_scene:main",
+            "shadow_hand_demo = genesis_ros.examples.shadow_hand_scene:main",
+            "drone_demo = genesis_ros.examples.drone_scene:main",
             "sensor_demo = genesis_ros.examples.sensor_demo:main",
         ],
     },

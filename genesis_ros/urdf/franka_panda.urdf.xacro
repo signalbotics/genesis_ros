@@ -1,0 +1,53 @@
+<?xml version="1.0"?>
+<!--
+  Franka Panda URDF for the Genesis <-> ROS 2 bridge.
+
+  Wraps the Genesis-shipped panda URDF (/opt/genesis/assets/urdf/panda_bullet/
+  panda.urdf by default) and adds a <ros2_control> block bound to
+  topic_based_ros2_control/TopicBasedSystem so the bridge can drive the
+  arm via /franka/joint_commands and state it on /franka/joint_states.
+
+  xacro args:
+    base_urdf        absolute path to the panda URDF to wrap
+    commands_topic   ROS 2 topic controllers publish joint commands on
+    states_topic     ROS 2 topic the bridge publishes joint states on
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="franka_panda">
+
+  <xacro:arg name="base_urdf"
+             default="/opt/genesis/assets/urdf/panda_bullet/panda.urdf"/>
+  <xacro:arg name="commands_topic" default="/franka/joint_commands"/>
+  <xacro:arg name="states_topic"   default="/franka/joint_states"/>
+
+  <!-- Pull in every link / joint / inertial / visual / collision from
+       the Genesis panda URDF. xacro:include flattens the included
+       <robot>'s children into this one. -->
+  <xacro:include filename="$(arg base_urdf)"/>
+
+  <!-- Helper: a single topic-based command+state joint interface. -->
+  <xacro:macro name="panda_topic_joint" params="name">
+    <joint name="${name}">
+      <command_interface name="position"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+  </xacro:macro>
+
+  <ros2_control name="panda_topic_bridge" type="system">
+    <hardware>
+      <plugin>topic_based_ros2_control/TopicBasedSystem</plugin>
+      <param name="joint_commands_topic">$(arg commands_topic)</param>
+      <param name="joint_states_topic">$(arg states_topic)</param>
+      <param name="sum_wrapped_joint_states">false</param>
+    </hardware>
+
+    <xacro:panda_topic_joint name="panda_joint1"/>
+    <xacro:panda_topic_joint name="panda_joint2"/>
+    <xacro:panda_topic_joint name="panda_joint3"/>
+    <xacro:panda_topic_joint name="panda_joint4"/>
+    <xacro:panda_topic_joint name="panda_joint5"/>
+    <xacro:panda_topic_joint name="panda_joint6"/>
+    <xacro:panda_topic_joint name="panda_joint7"/>
+  </ros2_control>
+
+</robot>

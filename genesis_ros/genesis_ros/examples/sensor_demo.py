@@ -218,7 +218,9 @@ def main(argv=None):
     franka = scene.add_entity(
         gs.morphs.URDF(file=urdf_path, pos=(0.0, 0.0, 0.0), fixed=True)
     )
-    end_effector = franka.get_link("hand")
+    # panda_bullet/panda.urdf has no "hand" link (that's the MJCF
+    # variant). Use the last arm link as the EE anchor.
+    end_effector = franka.get_link("panda_link7")
 
     # --- sensors --------------------------------------------------------
     imu = scene.add_sensor(
@@ -228,7 +230,9 @@ def main(argv=None):
             pos_offset=(0.0, 0.0, 0.05),
             acc_noise=(0.02, 0.02, 0.02),
             gyro_noise=(0.005, 0.005, 0.005),
-            delay=0.005,
+            # NOTE: delay intentionally unset. Genesis's validator does
+            # 1 / round(delay / dt), which raises ZeroDivisionError when
+            # delay < 0.5*dt (the banker's-rounding cliff).
         )
     )
 
@@ -282,7 +286,7 @@ def main(argv=None):
     bridge.registry.register_sensor("franka", "ee_proximity", proximity)
     bridge.registry.register_sensor("franka", "lidar", lidar)
     bridge.registry.register_camera(
-        "franka", "wrist_cam", wrist_cam, parent_link="hand"
+        "franka", "wrist_cam", wrist_cam, parent_link="panda_link7"
     )
 
     for publisher_cls, cfg in (

@@ -28,19 +28,31 @@ override_dh_auto_install:
 	# package (declared in Depends) so the venv's interpreter can find it.
 	python3.12 -m venv --copies $(VENV)
 	$(VENV)/bin/pip install --upgrade pip wheel setuptools
+	# Pin numpy < 2 BEFORE any C-extension wheel lands. ROS 2 Jazzy ships
+	# cv_bridge, tf_transformations and friends compiled against the
+	# numpy 1.x ABI; a numpy 2.x in the venv gets prepended onto the
+	# system python's sys.path by our .pth file (see below) and those
+	# system .so files bomb with "compiled using NumPy 1.x cannot be run
+	# in NumPy 2.x". Torch and Genesis both work fine on numpy < 2.
+	$(VENV)/bin/pip install "numpy<2"
+	# Write a pip constraints file honoured by every subsequent install
+	# in this recipe, so torch / genesis deps cannot silently upgrade
+	# numpy past the 1.x ABI cv_bridge expects.
+	echo "numpy<2" > $(CURDIR)/debian/.pip-constraints.txt
 	# Torch is intentionally not declared by genesis-world's pyproject.toml
 	# (see upstream README — it's CUDA-version specific). Install it first so
 	# `import torch` works out of the box. Default PyPI wheel ships with CUDA
 	# 13 runtime; works on NVIDIA driver >= 550.
-	$(VENV)/bin/pip install torch
+	$(VENV)/bin/pip install -c $(CURDIR)/debian/.pip-constraints.txt torch
 	# Stage Genesis source into a writable dir (setuptools wants to create
 	# egg-info during build; the upstream checkout may be read-only).
 	rm -rf $(SRC_STAGE)
 	mkdir -p $(SRC_STAGE)
 	cp -a $(REPO_ROOT)/. $(SRC_STAGE)/
 	# Install genesis-world from the staged copy.
-	$(VENV)/bin/pip install $(SRC_STAGE)
+	$(VENV)/bin/pip install -c $(CURDIR)/debian/.pip-constraints.txt $(SRC_STAGE)
 	rm -rf $(SRC_STAGE)
+	rm -f $(CURDIR)/debian/.pip-constraints.txt
 	# Strip the absolute build path out of the venv so it runs from /opt/genesis.
 	$(VENV)/bin/python -c "import subprocess,sys; subprocess.check_call([sys.executable, '-m', 'pip', 'check'])" || true
 	# Rewrite shebangs from the build dir to /opt/genesis/venv.

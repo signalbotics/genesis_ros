@@ -160,15 +160,17 @@ class CameraPublisher(GenesisPublisher):
         rgb, depth, seg, _normal = rendered
         ns = "/" + entry.entity_name + "/" + entry.cam_name
 
+        n_envs = int(getattr(self.scene, "n_envs", 0) or 0)
+
         if rgb is not None:
-            rgb_np = conv.select_env(rgb, self._env_idx)
+            rgb_np = self._slice_batch(rgb, n_envs, expected_trailing_channels=3)
             if rgb_np.dtype != np.uint8:
                 rgb_np = np.clip(rgb_np, 0, 255).astype(np.uint8)
             img_msg = self._rgb_to_msg(rgb_np, entry.frame_id, sim_time)
             self._get_pub(entry, "image_raw", Image, ns + "/image_raw").publish(img_msg)
 
         if entry.publish_depth and depth is not None:
-            depth_np = conv.select_env(depth, self._env_idx)
+            depth_np = self._slice_batch(depth, n_envs, expected_trailing_channels=None)
             depth_np = np.asarray(depth_np, dtype=np.float32)
             depth_msg = self._depth_to_msg(depth_np, entry.frame_id, sim_time)
             self._get_pub(entry, "depth", Image, ns + "/depth").publish(depth_msg)
@@ -186,7 +188,7 @@ class CameraPublisher(GenesisPublisher):
                 self.node.get_logger().warning("CameraPublisher pointcloud failed: " + repr(exc))
 
         if entry.publish_segmentation and seg is not None:
-            seg_np = conv.select_env(seg, self._env_idx)
+            seg_np = self._slice_batch(seg, n_envs, expected_trailing_channels=None)
             seg_np = np.asarray(seg_np)
             if seg_np.ndim == 3 and seg_np.shape[-1] == 1:
                 seg_np = seg_np[..., 0]
@@ -194,12 +196,42 @@ class CameraPublisher(GenesisPublisher):
             seg_msg = conv.np_to_image_msg(seg_u16, "mono16", stamp=sim_time, frame_id=entry.frame_id)
             self._get_pub(entry, "segmentation", Image, ns + "/segmentation").publish(seg_msg)
 
-        if not entry.tf_emitted:
-            try:
-                self._emit_tf(entry, sim_time)
-                entry.tf_emitted = True
-            except Exception as exc:  # pragma: no cover
-                self.node.get_logger().warning("CameraPublisher TF emit failed: " + repr(exc))
+        # Emit camera TF EVERY tick, not just once: cameras attached to
+        # a moving link change their world transform each step, so a
+        # one-shot TF leaves point clouds / images stamped against a
+        # frozen frame. Cheap (one TransformStamped per camera).
+        try:
+            self._emit_tf(entry, sim_time)
+        except Exception as exc:  # pragma: no cover
+            self.node.get_logger().warning("CameraPublisher TF emit failed: " + repr(exc))
+
+    @staticmethod
+    def _slice_batch(tensor, n_envs: int, expected_trailing_channels):
+        """Return the array for ``env_idx=0`` without mangling
+        non-batched camera output.
+
+        ``conv.select_env`` blindly slices ``arr[0]`` whenever
+        ``arr.ndim > 1``. For camera frames that means an unvectorised
+        ``(H, W, 3)`` gets chopped to ``(W, 3)``, which cv_bridge rejects
+        as 8UC1. Only slice when the scene actually has a batch dim.
+        """
+        arr = conv._as_numpy(tensor)
+        # Multi-env case: ``arr.shape[0] == n_envs`` and arr.ndim matches
+        # the unvectorised ndim + 1 (H,W,3) -> (n_envs,H,W,3).
+        if n_envs > 1 and arr.ndim >= 3 and arr.shape[0] == n_envs:
+            return arr[0]
+        # Sometimes Genesis still returns a leading 1-dim even in the
+        # non-vectorised case. Strip only that leading 1.
+        if arr.ndim >= 3 and arr.shape[0] == 1:
+            squeezed = arr[0]
+            if expected_trailing_channels is None or (
+                squeezed.ndim >= 2 and (
+                    squeezed.ndim == 2
+                    or squeezed.shape[-1] == expected_trailing_channels
+                )
+            ):
+                return squeezed
+        return arr
 
     @staticmethod
     def _rgb_to_msg(rgb_np, frame_id, sim_time):

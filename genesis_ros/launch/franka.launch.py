@@ -13,7 +13,6 @@ import os
 from launch import LaunchDescription
 from launch.actions import (
     DeclareLaunchArgument,
-    ExecuteProcess,
     OpaqueFunction,
     RegisterEventHandler,
 )
@@ -58,14 +57,50 @@ def _pkg_share():
     return os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
 
 
+def _rewrite_urdf_meshes(urdf_text: str, base_urdf_path: str) -> str:
+    """Replace ``package://meshes/...`` with absolute ``file://`` URIs so
+    RViz can resolve the Genesis panda mesh paths (the URDF as shipped
+    expects a ROS package named ``meshes`` which does not exist).
+
+    Runs AFTER xacro processing -- xacro cannot substitute strings inside
+    an xacro:include'd URDF's attributes, so mesh-path fixup stays as a
+    narrow text replace bounded by the Genesis asset's meshes/ dir.
+    """
+    meshes_root = os.path.join(os.path.dirname(base_urdf_path), "meshes")
+    if not os.path.isdir(meshes_root):
+        return urdf_text
+    return urdf_text.replace("package://meshes/", "file://" + meshes_root + "/")
+
+
+def _process_xacro(xacro_path: str, mappings: dict) -> str:
+    """Render ``xacro_path`` to a URDF string using the given mappings.
+
+    Lazy-imports ``xacro`` so this module still parses on CI boxes
+    without a ROS 2 install.
+    """
+    import xacro  # noqa: F401 -- raises at launch time if missing
+    doc = xacro.process_file(xacro_path, mappings=mappings)
+    return doc.toprettyxml(indent="  ")
+
+
 def _robot_state_publisher(context, *args, **kwargs):
-    path = LaunchConfiguration("urdf_path").perform(context)
-    robot_description = ""
-    if path and os.path.isfile(path):
-        with open(path, "r") as f:
-            robot_description = f.read()
-    if not robot_description:
+    base_urdf = LaunchConfiguration("urdf_path").perform(context)
+    xacro_path = LaunchConfiguration("xacro_path").perform(context)
+    if not os.path.isfile(base_urdf) or not os.path.isfile(xacro_path):
         return []
+
+    # Render the xacro wrapper (adds <ros2_control>), then post-process
+    # package://meshes/... -> file://... for RViz.
+    robot_description = _process_xacro(
+        xacro_path,
+        mappings={
+            "base_urdf": base_urdf,
+            "commands_topic": "/franka/joint_commands",
+            "states_topic": "/franka/joint_states",
+        },
+    )
+    robot_description = _rewrite_urdf_meshes(robot_description, base_urdf)
+
     use_sim_time = (
         LaunchConfiguration("use_sim_time").perform(context).lower() in ("1", "true")
     )
@@ -86,13 +121,21 @@ def generate_launch_description():
     pkg_share = _pkg_share()
     default_controllers = os.path.join(pkg_share, "config", "controllers_franka.yaml")
     default_rviz = os.path.join(pkg_share, "config", "rviz", "franka.rviz")
-    default_scene = os.path.join(pkg_share, "examples", "franka_scene.py")
+    default_xacro = os.path.join(pkg_share, "urdf", "franka_panda.urdf.xacro")
 
     args = [
         DeclareLaunchArgument(
             "urdf_path",
             default_value=DEFAULT_FRANKA_URDF,
-            description="Absolute path to the Franka URDF.",
+            description="Absolute path to the base Franka URDF (wrapped by xacro).",
+        ),
+        DeclareLaunchArgument(
+            "xacro_path",
+            default_value=default_xacro,
+            description=(
+                "Xacro wrapper that includes the base URDF and adds the "
+                "<ros2_control> block for topic_based_ros2_control."
+            ),
         ),
         DeclareLaunchArgument(
             "controllers_path",
@@ -103,11 +146,6 @@ def generate_launch_description():
             "rviz_config",
             default_value=default_rviz,
             description="RViz config file.",
-        ),
-        DeclareLaunchArgument(
-            "scene_path",
-            default_value=default_scene,
-            description="Python scene file to run.",
         ),
         DeclareLaunchArgument(
             "use_sim_time",
@@ -121,12 +159,14 @@ def generate_launch_description():
         ),
     ]
 
-    # Genesis scene + in-process genesis_bridge node.
-    scene_proc = ExecuteProcess(
-        cmd=["python3", LaunchConfiguration("scene_path")],
+    # Genesis scene + in-process genesis_bridge node. Launched via the
+    # ``franka_demo`` console script (registered in setup.py) because
+    # example modules are installed under site-packages, not share/.
+    scene_proc = Node(
+        package="genesis_ros",
+        executable="franka_demo",
         name="franka_scene",
         output="screen",
-        additional_env={"GENESIS_SHOW_VIEWER": os.environ.get("GENESIS_SHOW_VIEWER", "0")},
     )
 
     rsp_action = OpaqueFunction(function=_robot_state_publisher)

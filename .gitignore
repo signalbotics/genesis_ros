@@ -27,4 +27,5 @@ packaging/*/debian/tmp/
 .vscode/
 .idea/
 *.swp
+*.deb
 .DS_Store

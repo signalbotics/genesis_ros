@@ -91,7 +91,10 @@ After install:
 ros2 run genesis_ros genesis_bridge     # empty scene — just /clock
 ros2 run genesis_ros franka_demo        # Franka Panda arm + GUI
 ros2 run genesis_ros go2_demo           # Unitree Go2 quadruped + GUI
-ros2 run genesis_ros turtlebot_demo     # Diff-drive base (or custom URDF)
+ros2 run genesis_ros anymal_demo        # ANYmal C quadruped + GUI
+ros2 run genesis_ros kuka_demo          # KUKA LBR iiwa 7-DoF arm + GUI
+ros2 run genesis_ros shadow_hand_demo   # Shadow Dexterous Hand + GUI
+ros2 run genesis_ros drone_demo         # Crazyflie 2.x quadrotor + GUI
 ros2 run genesis_ros sensor_demo        # Franka in a kitchen with ALL sensors live
 # or with RViz preloaded:
 ros2 launch genesis_ros sensor_demo.launch.py
@@ -140,18 +143,21 @@ ros2 launch genesis_ros spawn_entity.launch.py \
 ```
 
 Launch files also ship (`launch/franka.launch.py`, `go2.launch.py`,
-`turtlebot.launch.py`) for full RViz + controller_manager setups. Expected
-behaviour of each:
+`sensor_demo.launch.py`) for full RViz + controller_manager setups.
+Expected behaviour of each:
 
-- **franka**: full TF chain `world → franka/base_link → … → franka/panda_hand`;
-  `/franka/joint_states` at physics rate; wrist camera on
-  `/franka/wrist_cam/image_raw`; IMU on `/franka/imu`; controller spawner
-  loads `panda_arm_controller` + `joint_state_broadcaster`.
-- **go2**: 12 leg joints in `/go2/joint_states`; body IMU on `/go2/imu`;
-  per-foot contacts on `/go2/contacts/{FL,FR,RL,RR}_foot`.
-- **turtlebot**: 2D lidar on `/turtlebot/lidar/scan`; `/turtlebot/odom`
-  updates when you publish `/turtlebot/cmd_vel`; TF chain
-  `world → turtlebot/odom → turtlebot/base_link`.
+- **franka**: full TF chain `world → franka/panda_link0 → … →
+  franka/panda_link7`; `/franka/joint_states` at physics rate;
+  controller spawner loads `joint_trajectory_controller` +
+  `joint_state_broadcaster`.
+- **go2**: 12 leg joints in `/go2/joint_states`; `/go2/odom` updated
+  from the free base.
+- **anymal**: 12 leg joints in `/anymal/joint_states`; `/anymal/odom`
+  from the free base. Publishes `/anymal/cmd_vel` for free-base push.
+- **kuka**: 7-DoF iiwa, `/kuka/joint_states`.
+- **shadow_hand**: 24-joint dexterous hand, `/shadow_hand/joint_states`.
+- **drone**: Crazyflie 2.x, `/drone/odom` + ground-truth pose on
+  `/drone/pose_ground_truth` for SLAM / VIO reference.
 - **sensor_demo**: fixed Franka in a primitives-built kitchen (walls,
   workbench, fridge, pillar, tabletop props). Exercises every sensor
   publisher: wrist RGB+depth camera on `/franka/wrist_cam/*`, EE IMU on
@@ -326,7 +332,9 @@ genesis_ros/
 ├── services/               sim_control, entity (spawn/delete/get/set)
 ├── actions/                follow_joint_trajectory
 ├── control/                URDF <ros2_control> parsing + topic HW bridge
-└── examples/               franka_scene, go2_scene, turtlebot_scene
+└── examples/               franka_scene, go2_scene, anymal_scene,
+                            kuka_scene, shadow_hand_scene, drone_scene,
+                            sensor_demo
 ```
 
 ---

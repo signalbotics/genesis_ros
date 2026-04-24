@@ -342,6 +342,8 @@ class TFStaticPublisher(GenesisPublisher):
                 self._collect_fixed_from_urdf(sim_time, record_name, root)
             )
             if _record_is_mobile_base(record):
+                # Mobile base: odom is the dynamic frame, world->odom is
+                # the identity static root.
                 transforms.append(
                     _make_tf(
                         sim_time,
@@ -351,11 +353,78 @@ class TFStaticPublisher(GenesisPublisher):
                         quat_wxyz=(1.0, 0.0, 0.0, 0.0),
                     )
                 )
+            else:
+                # Fixed-base: anchor the robot's root link directly to
+                # world using the entity's current pose. Without this the
+                # whole record_name/* frame subtree is orphaned and RViz
+                # (Fixed Frame: world) shows nothing.
+                base_tf = self._world_to_base_link(sim_time, record)
+                if base_tf is not None:
+                    transforms.append(base_tf)
 
         msg = TFMessage()
         msg.transforms = transforms
         self._pub.publish(msg)
         self._published = True
+
+    def _world_to_base_link(self, sim_time, record):
+        """Build ``world -> <record_name>/<base_link>`` from the entity's
+        current base pose. Returns ``None`` if the entity does not
+        expose get_pos / get_quat yet."""
+        entity = getattr(record, "entity", None) or getattr(
+            record, "gs_entity", None
+        )
+        if entity is None:
+            return None
+        base_link_name = (
+            getattr(record, "base_link_name", None)
+            or self._first_link_name(record)
+        )
+        if not base_link_name:
+            return None
+
+        pos = quat = None
+        try:
+            if hasattr(entity, "get_pos"):
+                pos = conv._as_numpy(entity.get_pos()).reshape(-1)
+            if hasattr(entity, "get_quat"):
+                quat = conv._as_numpy(entity.get_quat()).reshape(-1)
+        except Exception:
+            return None
+
+        if pos is None or quat is None or pos.size < 3 or quat.size < 4:
+            return None
+
+        # conv.select_env in case n_envs > 1; _as_numpy has flattened out
+        # scene-level batch dims, but entity-level batch slicing still
+        # matters when used.
+        env_idx = int(self.cfg.get("env_idx", 0)) if isinstance(self.cfg, dict) else 0
+        if pos.ndim > 1 or pos.size > 3:
+            try:
+                pos = np.asarray(conv.select_env(pos, env_idx)).reshape(-1)
+                quat = np.asarray(conv.select_env(quat, env_idx)).reshape(-1)
+            except Exception:
+                pos = pos.reshape(-1)[:3]
+                quat = quat.reshape(-1)[:4]
+
+        pos_tuple = (float(pos[0]), float(pos[1]), float(pos[2]))
+        quat_tuple = (float(quat[0]), float(quat[1]), float(quat[2]), float(quat[3]))
+        return _make_tf(
+            sim_time,
+            parent_frame="world",
+            child_frame=_record_name(record) + "/" + str(base_link_name),
+            pos=pos_tuple,
+            quat_wxyz=quat_tuple,
+        )
+
+    @staticmethod
+    def _first_link_name(record):
+        links = getattr(record, "links", None) or ()
+        for link in links:
+            name = getattr(link, "name", None)
+            if name:
+                return str(name)
+        return None
 
 
 __all__ = ["TFPublisher", "TFStaticPublisher"]

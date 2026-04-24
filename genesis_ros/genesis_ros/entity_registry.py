@@ -480,6 +480,18 @@ class EntityRegistry:
     def __len__(self) -> int:
         return len(self._records)
 
+    # Dict-protocol shims. Several publishers (imu, contact, proximity,
+    # temperature) iterate registry.items() expecting (name, record)
+    # pairs -- without these, their step() raises AttributeError.
+    def items(self):
+        return self._records.items()
+
+    def keys(self):
+        return self._records.keys()
+
+    def values(self):
+        return self._records.values()
+
     @property
     def names(self) -> List[str]:
         return list(self._records.keys())

@@ -1,14 +1,18 @@
 """Launch the sensor-heavy demo with RViz preloaded.
 
-Starts ``examples/sensor_demo.py`` (Genesis scene + ``genesis_bridge`` in
-process), ``robot_state_publisher`` loading the Franka URDF, and RViz
-with a config that shows the wrist camera, lidar point cloud, IMU, TF,
-and contacts.
+Starts the ``sensor_demo`` console script (Genesis scene +
+``genesis_bridge`` in process), ``robot_state_publisher`` with the
+panda URDF, and RViz preloaded with the sensor layout.
+
+The panda URDF from Genesis ships ``package://meshes/visual/hand.obj``
+style mesh references that RViz cannot resolve (there is no ROS package
+named ``meshes``). This launch rewrites them to absolute ``file://``
+URIs so the RobotModel display loads.
 """
 import os
 
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, ExecuteProcess, OpaqueFunction
+from launch.actions import DeclareLaunchArgument, OpaqueFunction
 from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
@@ -43,12 +47,22 @@ def _pkg_share():
     return os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
 
 
+def _rewrite_urdf_meshes(urdf_text: str, urdf_path: str) -> str:
+    """Replace ``package://meshes/...`` with file:// URIs rooted at the
+    URDF's sibling ``meshes/`` directory so RViz can resolve them."""
+    meshes_root = os.path.join(os.path.dirname(urdf_path), "meshes")
+    if not os.path.isdir(meshes_root):
+        return urdf_text
+    return urdf_text.replace("package://meshes/", "file://" + meshes_root + "/")
+
+
 def _robot_state_publisher(context, *_args, **_kwargs):
     path = LaunchConfiguration("urdf_path").perform(context)
     if not path or not os.path.isfile(path):
         return []
     with open(path, "r") as fh:
         robot_description = fh.read()
+    robot_description = _rewrite_urdf_meshes(robot_description, path)
     use_sim_time = (
         LaunchConfiguration("use_sim_time").perform(context).lower() in ("1", "true")
     )
@@ -68,23 +82,17 @@ def _robot_state_publisher(context, *_args, **_kwargs):
 def generate_launch_description():
     pkg_share = _pkg_share()
     default_rviz = os.path.join(pkg_share, "config", "rviz", "sensor_demo.rviz")
-    default_scene = os.path.join(pkg_share, "examples", "sensor_demo.py")
 
     args = [
         DeclareLaunchArgument(
             "urdf_path",
             default_value=DEFAULT_URDF,
-            description="Absolute path to the Franka URDF.",
+            description="Absolute path to the panda URDF.",
         ),
         DeclareLaunchArgument(
             "rviz_config",
             default_value=default_rviz,
             description="RViz config file for the sensor demo.",
-        ),
-        DeclareLaunchArgument(
-            "scene_path",
-            default_value=default_scene,
-            description="Python scene file to run.",
         ),
         DeclareLaunchArgument(
             "use_sim_time",
@@ -98,8 +106,12 @@ def generate_launch_description():
         ),
     ]
 
-    scene_proc = ExecuteProcess(
-        cmd=["python3", LaunchConfiguration("scene_path")],
+    # Invoke the Python module via ``ros2 run`` console script registered
+    # in setup.py -- the scene is installed as a Python module, not a
+    # share data file, so we cannot ``python3 <path>`` it.
+    scene_node = Node(
+        package="genesis_ros",
+        executable="sensor_demo",
         name="sensor_demo_scene",
         output="screen",
     )
@@ -116,6 +128,6 @@ def generate_launch_description():
 
     return LaunchDescription(args + [
         OpaqueFunction(function=_robot_state_publisher),
-        scene_proc,
+        scene_node,
         rviz_node,
     ])

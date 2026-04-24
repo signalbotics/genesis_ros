@@ -99,11 +99,13 @@ def generate_launch_description():
         ),
     ]
 
-    scene_proc = ExecuteProcess(
-        cmd=["python3", LaunchConfiguration("scene_path")],
+    # Launched via the ``go2_demo`` console script (setup.py) because
+    # example modules live under site-packages, not share/.
+    scene_proc = Node(
+        package="genesis_ros",
+        executable="go2_demo",
         name="go2_scene",
         output="screen",
-        additional_env={"GENESIS_SHOW_VIEWER": os.environ.get("GENESIS_SHOW_VIEWER", "0")},
     )
 
     rsp_action = OpaqueFunction(function=_robot_state_publisher)
