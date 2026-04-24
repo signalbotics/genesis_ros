@@ -42,12 +42,17 @@ build_ros() {
     echo "[build-all] === ros-jazzy-genesis-ros ==="
     "$HERE/ros-jazzy-genesis-ros/build.sh"
 }
+build_ros2_control() {
+    echo "[build-all] === ros-jazzy-genesis-ros2-control ==="
+    "$HERE/ros-jazzy-genesis-ros2-control/build.sh"
+}
 
 case "$target" in
-    all)                   build_genesis_world; build_assets; build_ros ;;
+    all)                   build_genesis_world; build_assets; build_ros; build_ros2_control ;;
     genesis-world)         build_genesis_world ;;
     genesis-world-assets)  build_assets ;;
     ros|ros-jazzy-genesis-ros) build_ros ;;
+    ros2-control|ros-jazzy-genesis-ros2-control) build_ros2_control ;;
     *) echo "unknown target: $target" >&2; exit 2 ;;
 esac
 

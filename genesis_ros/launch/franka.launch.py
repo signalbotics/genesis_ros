@@ -91,10 +91,13 @@ def _robot_state_publisher(context, *args, **kwargs):
 
     # Render the xacro wrapper (adds <ros2_control>), then post-process
     # package://meshes/... -> file://... for RViz.
+    hw = LaunchConfiguration("hardware").perform(context) or "shm"
     robot_description = _process_xacro(
         xacro_path,
         mappings={
             "base_urdf": base_urdf,
+            "hardware": hw,
+            "robot_name": "franka",
             "commands_topic": "/franka/joint_commands",
             "states_topic": "/franka/joint_states",
         },
@@ -156,6 +159,15 @@ def generate_launch_description():
             "rviz",
             default_value="true",
             description="Whether to launch RViz.",
+        ),
+        DeclareLaunchArgument(
+            "hardware",
+            default_value="shm",
+            description=(
+                "Hardware plugin: 'shm' (native genesis_ros2_control, "
+                "lock-free /dev/shm, default) or 'topic' (community "
+                "topic_based_ros2_control, must be apt/source-installed)."
+            ),
         ),
     ]
 

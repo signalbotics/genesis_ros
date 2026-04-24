@@ -16,6 +16,13 @@
 
   <xacro:arg name="base_urdf"
              default="/opt/genesis/assets/urdf/panda_bullet/panda.urdf"/>
+  <!--
+    hardware:
+      "shm"    genesis_ros2_control/GenesisSystem (native, /dev/shm)
+      "topic"  topic_based_ros2_control/TopicBasedSystem (community)
+  -->
+  <xacro:arg name="hardware"       default="shm"/>
+  <xacro:arg name="robot_name"     default="franka"/>
   <xacro:arg name="commands_topic" default="/franka/joint_commands"/>
   <xacro:arg name="states_topic"   default="/franka/joint_states"/>
 
@@ -24,30 +31,39 @@
        <robot>'s children into this one. -->
   <xacro:include filename="$(arg base_urdf)"/>
 
-  <!-- Helper: a single topic-based command+state joint interface. -->
-  <xacro:macro name="panda_topic_joint" params="name">
+  <!-- Helper: a single command+state joint interface used by either
+       backend. -->
+  <xacro:macro name="panda_joint_iface" params="name">
     <joint name="${name}">
       <command_interface name="position"/>
       <state_interface name="position"/>
       <state_interface name="velocity"/>
+      <state_interface name="effort"/>
     </joint>
   </xacro:macro>
 
-  <ros2_control name="panda_topic_bridge" type="system">
+  <ros2_control name="panda_hw" type="system">
     <hardware>
-      <plugin>topic_based_ros2_control/TopicBasedSystem</plugin>
-      <param name="joint_commands_topic">$(arg commands_topic)</param>
-      <param name="joint_states_topic">$(arg states_topic)</param>
-      <param name="sum_wrapped_joint_states">false</param>
+      <xacro:if value="${'$(arg hardware)' == 'shm'}">
+        <plugin>genesis_ros2_control/GenesisSystem</plugin>
+        <param name="robot_name">$(arg robot_name)</param>
+        <param name="wait_for_bridge_sec">10.0</param>
+      </xacro:if>
+      <xacro:if value="${'$(arg hardware)' == 'topic'}">
+        <plugin>topic_based_ros2_control/TopicBasedSystem</plugin>
+        <param name="joint_commands_topic">$(arg commands_topic)</param>
+        <param name="joint_states_topic">$(arg states_topic)</param>
+        <param name="sum_wrapped_joint_states">false</param>
+      </xacro:if>
     </hardware>
 
-    <xacro:panda_topic_joint name="panda_joint1"/>
-    <xacro:panda_topic_joint name="panda_joint2"/>
-    <xacro:panda_topic_joint name="panda_joint3"/>
-    <xacro:panda_topic_joint name="panda_joint4"/>
-    <xacro:panda_topic_joint name="panda_joint5"/>
-    <xacro:panda_topic_joint name="panda_joint6"/>
-    <xacro:panda_topic_joint name="panda_joint7"/>
+    <xacro:panda_joint_iface name="panda_joint1"/>
+    <xacro:panda_joint_iface name="panda_joint2"/>
+    <xacro:panda_joint_iface name="panda_joint3"/>
+    <xacro:panda_joint_iface name="panda_joint4"/>
+    <xacro:panda_joint_iface name="panda_joint5"/>
+    <xacro:panda_joint_iface name="panda_joint6"/>
+    <xacro:panda_joint_iface name="panda_joint7"/>
   </ros2_control>
 
 </robot>

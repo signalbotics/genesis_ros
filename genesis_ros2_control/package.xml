@@ -1,0 +1,32 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>genesis_ros2_control</name>
+  <version>0.1.0</version>
+  <description>
+    Native hardware_interface::SystemInterface plugin for the Genesis
+    physics simulator. Talks to the Python genesis_bridge via a
+    lock-free shared-memory protocol, avoiding the topic-based hop
+    for high-rate (kHz) control loops.
+  </description>
+  <maintainer email="bruk@signalbotics.com">Genesis ROS Maintainers</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>hardware_interface</depend>
+  <depend>pluginlib</depend>
+  <depend>rclcpp</depend>
+  <depend>rclcpp_lifecycle</depend>
+
+  <exec_depend>controller_manager</exec_depend>
+
+  <test_depend>ament_cmake_gtest</test_depend>
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+    <hardware_interface plugin="${prefix}/genesis_system_plugin.xml"/>
+  </export>
+</package>

@@ -1,0 +1,12 @@
+<library path="genesis_ros2_control">
+  <class
+    name="genesis_ros2_control/GenesisSystem"
+    type="genesis_ros2_control::GenesisSystem"
+    base_class_type="hardware_interface::SystemInterface">
+    <description>
+      Native hardware_interface::SystemInterface that bridges
+      controller_manager with the Python genesis_bridge via a
+      /dev/shm seqlock-synchronised region. No topic hop.
+    </description>
+  </class>
+</library>

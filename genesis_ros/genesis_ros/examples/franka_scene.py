@@ -23,6 +23,7 @@ from genesis_ros import GenesisRosBridge
 from genesis_ros.publishers.clock import ClockPublisher, RealTimeFactorPublisher
 from genesis_ros.publishers.tf import TFPublisher, TFStaticPublisher
 from genesis_ros.publishers.joint_state import JointStatePublisher
+from genesis_ros.control.shm_bridge import register_shm_bridge
 
 
 # Prefer the system asset location from the genesis-world-assets .deb,
@@ -86,6 +87,18 @@ def main(argv=None):
         bridge.register_publisher(
             publisher_cls(bridge.node, scene, bridge.registry, {})
         )
+
+    # Native shared-memory hardware bridge for genesis_ros2_control/
+    # GenesisSystem. Always wired on -- if no controller_manager is
+    # running, the shm region just sits there harmlessly. Opt out with
+    # GENESIS_DISABLE_SHM=1 for boxes where /dev/shm is restricted.
+    if os.environ.get("GENESIS_DISABLE_SHM", "0") != "1":
+        try:
+            register_shm_bridge(bridge, robot="franka")
+        except Exception as exc:
+            bridge.node.get_logger().warning(
+                "shm hardware bridge not started: " + repr(exc)
+            )
 
     bridge.spin()
     return 0
