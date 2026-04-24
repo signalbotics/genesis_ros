@@ -18,8 +18,14 @@ if [ -z "$GENESIS_SRC" ] || [ ! -f "$GENESIS_SRC/pyproject.toml" ]; then
     exit 1
 fi
 
-if ! docker image inspect "$IMG" >/dev/null 2>&1; then
-    echo "[build-in-docker] building image $IMG (one-time, takes a few minutes)"
+# Rebuild the builder image when it doesn't exist OR when Dockerfile.noble
+# has been modified since the image was last built. Prevents the classic
+# "I updated the Dockerfile but the cached image is stale" footgun.
+_image_mtime="$(docker image inspect --format '{{.Created}}' "$IMG" 2>/dev/null \
+    | xargs -I{} date -d {} +%s 2>/dev/null || echo 0)"
+_dockerfile_mtime="$(stat -c %Y "$HERE/Dockerfile.noble")"
+if [ "$_image_mtime" -lt "$_dockerfile_mtime" ]; then
+    echo "[build-in-docker] (re)building image $IMG"
     docker build -t "$IMG" -f "$HERE/Dockerfile.noble" "$HERE"
 fi
 
