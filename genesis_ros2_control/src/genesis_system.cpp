@@ -32,14 +32,21 @@ GenesisSystem::~GenesisSystem() { close_shm(); }
 // ---------------------------------------------------------------- on_init
 CallbackReturn GenesisSystem::on_init(const hardware_interface::HardwareInfo & info)
 {
-  if (hardware_interface::SystemInterface::on_init(info) != CallbackReturn::SUCCESS) {
-    return CallbackReturn::ERROR;
-  }
+  // Do NOT call SystemInterface::on_init(info) here. Jazzy's
+  // hardware_interface refactor made the (HardwareInfo&) overload a
+  // deprecated shim whose default body pokes at params_, which the
+  // framework populates via the new (HardwareComponentInterfaceParams&)
+  // virtual; calling the shim from a subclass dereferences partially
+  // set state and segfaults.
+  //
+  // The framework has already copied `info` into the base's `info_`
+  // before dispatching here, but we use the argument directly for
+  // clarity and to avoid relying on that assumption.
 
   auto logger = rclcpp::get_logger("GenesisSystem");
 
-  const auto robot_it = info_.hardware_parameters.find("robot_name");
-  if (robot_it == info_.hardware_parameters.end() || robot_it->second.empty()) {
+  const auto robot_it = info.hardware_parameters.find("robot_name");
+  if (robot_it == info.hardware_parameters.end() || robot_it->second.empty()) {
     RCLCPP_ERROR(
       logger,
       "GenesisSystem requires the 'robot_name' hardware parameter "
@@ -49,8 +56,8 @@ CallbackReturn GenesisSystem::on_init(const hardware_interface::HardwareInfo & i
   const std::string robot_name = robot_it->second;
 
   double wait_sec = 5.0;
-  const auto wait_it = info_.hardware_parameters.find("wait_for_bridge_sec");
-  if (wait_it != info_.hardware_parameters.end()) {
+  const auto wait_it = info.hardware_parameters.find("wait_for_bridge_sec");
+  if (wait_it != info.hardware_parameters.end()) {
     try {
       wait_sec = std::stod(wait_it->second);
     } catch (const std::exception & e) {
@@ -60,26 +67,34 @@ CallbackReturn GenesisSystem::on_init(const hardware_interface::HardwareInfo & i
     }
   }
 
-  if (info_.joints.size() > GENESIS_SHM_MAX_JOINTS) {
+  if (info.joints.size() > GENESIS_SHM_MAX_JOINTS) {
     RCLCPP_ERROR(
       logger, "URDF has %zu joints but the shm layout caps at %u.",
-      info_.joints.size(),
+      info.joints.size(),
       static_cast<unsigned>(GENESIS_SHM_MAX_JOINTS));
     return CallbackReturn::ERROR;
   }
 
   joints_.clear();
-  joints_.reserve(info_.joints.size());
-  for (std::size_t i = 0; i < info_.joints.size(); ++i) {
+  joints_.reserve(info.joints.size());
+  for (std::size_t i = 0; i < info.joints.size(); ++i) {
     Joint j;
-    j.name = info_.joints[i].name;
+    j.name = info.joints[i].name;
     j.shm_index = i;  // filled in properly once we see the handshake
-    // Determine which command interfaces this joint declared.
-    for (const auto & ci : info_.joints[i].command_interfaces) {
-      if (ci.name == hardware_interface::HW_IF_POSITION) j.has_position_cmd = true;
-      else if (ci.name == hardware_interface::HW_IF_VELOCITY) j.has_velocity_cmd = true;
-      else if (ci.name == hardware_interface::HW_IF_EFFORT) j.has_effort_cmd = true;
-    }
+    // NOTE: we do NOT iterate info.joints[i].command_interfaces /
+    // state_interfaces to probe what the URDF declared. In Jazzy's
+    // hardware_info.hpp the ComponentInfo struct layout (which fields
+    // sit at which offset) has shifted between point releases, and
+    // reading the interface vector segfaults at runtime when the
+    // .so built against image-time headers meets a slightly different
+    // runtime ABI. The xacro we ship declares position-command +
+    // position/velocity/effort state on every joint uniformly, so hard
+    // code that spec here. If a future URDF wants a different
+    // interface mix, we'll teach this class to read the spec some
+    // other way (e.g. from hardware_parameters or an explicit list).
+    j.has_position_cmd = true;
+    j.has_velocity_cmd = false;
+    j.has_effort_cmd   = false;
     joints_.push_back(std::move(j));
   }
 
