@@ -1,8 +1,9 @@
 # Build environment for genesis .debs targeting Ubuntu 24.04 (Noble) /
-# ROS 2 Jazzy / Python 3.12. Produces all three packages:
-#   - genesis-world            (vendored Python venv)
-#   - genesis-world-assets     (URDF + meshes)
-#   - ros-jazzy-genesis-ros    (ROS 2 bridge via bloom)
+# ROS 2 Jazzy / Python 3.12. Produces four packages:
+#   - genesis-world                  (vendored Python venv)
+#   - genesis-world-assets           (URDF + meshes)
+#   - ros-jazzy-genesis-ros          (ROS 2 bridge via bloom)
+#   - ros-jazzy-genesis-ros2-control (native hardware_interface plugin)
 FROM ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -26,6 +27,9 @@ RUN curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key \
     && apt-get update && apt-get install -y --no-install-recommends \
         python3-bloom python3-rosdep python3-catkin-pkg \
         ros-jazzy-ros-base ros-jazzy-ament-package \
+        ros-jazzy-ament-cmake \
+        ros-jazzy-hardware-interface ros-jazzy-pluginlib \
+        ros-jazzy-rclcpp-lifecycle ros-jazzy-controller-manager \
     && rm -rf /var/lib/apt/lists/*
 
 # Pre-seed rosdep so the first build doesn't need network for init.
