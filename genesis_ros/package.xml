@@ -32,6 +32,12 @@
   <exec_depend>simulation_interfaces</exec_depend>
   <exec_depend>topic_based_ros2_control</exec_depend>
 
+  <!-- MoveIt 2 — pulled in only if the user runs franka_moveit.launch.py. -->
+  <exec_depend>moveit_ros_move_group</exec_depend>
+  <exec_depend>moveit_planners_ompl</exec_depend>
+  <exec_depend>moveit_simple_controller_manager</exec_depend>
+  <exec_depend>moveit_ros_visualization</exec_depend>
+
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
   <test_depend>ament_pep257</test_depend>

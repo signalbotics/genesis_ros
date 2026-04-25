@@ -1,0 +1,43 @@
+# Velocity / acceleration scaling overrides for MoveIt's TimeOptimal
+# trajectory generation. Values are conservative (~70% of the
+# manufacturer's spec) so trajectories remain well within the joint
+# limits the URDF declares.
+default_velocity_scaling_factor: 0.5
+default_acceleration_scaling_factor: 0.5
+
+joint_limits:
+  panda_joint1:
+    has_velocity_limits: true
+    max_velocity: 2.175
+    has_acceleration_limits: true
+    max_acceleration: 5.0
+  panda_joint2:
+    has_velocity_limits: true
+    max_velocity: 2.175
+    has_acceleration_limits: true
+    max_acceleration: 5.0
+  panda_joint3:
+    has_velocity_limits: true
+    max_velocity: 2.175
+    has_acceleration_limits: true
+    max_acceleration: 5.0
+  panda_joint4:
+    has_velocity_limits: true
+    max_velocity: 2.175
+    has_acceleration_limits: true
+    max_acceleration: 5.0
+  panda_joint5:
+    has_velocity_limits: true
+    max_velocity: 2.610
+    has_acceleration_limits: true
+    max_acceleration: 5.0
+  panda_joint6:
+    has_velocity_limits: true
+    max_velocity: 2.610
+    has_acceleration_limits: true
+    max_acceleration: 5.0
+  panda_joint7:
+    has_velocity_limits: true
+    max_velocity: 2.610
+    has_acceleration_limits: true
+    max_acceleration: 5.0

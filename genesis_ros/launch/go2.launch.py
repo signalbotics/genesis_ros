@@ -110,18 +110,24 @@ def generate_launch_description():
 
     rsp_action = OpaqueFunction(function=_robot_state_publisher)
 
-    rviz_node = Node(
-        package="rviz2",
-        executable="rviz2",
-        name="rviz2",
-        output="screen",
-        arguments=["-d", LaunchConfiguration("rviz_config")],
-        parameters=[{"use_sim_time": LaunchConfiguration("use_sim_time")}],
-        condition=IfCondition(LaunchConfiguration("rviz")),
-    )
+    def _rviz(context, *_a, **_kw):
+        if LaunchConfiguration("rviz").perform(context).lower() not in ("1", "true"):
+            return []
+        from genesis_ros.launch_utils import resolve_rviz_config
+        cfg = resolve_rviz_config(
+            LaunchConfiguration("rviz_config").perform(context)
+        )
+        return [Node(
+            package="rviz2",
+            executable="rviz2",
+            name="rviz2",
+            output="screen",
+            arguments=["-d", cfg],
+            parameters=[{"use_sim_time": LaunchConfiguration("use_sim_time")}],
+        )]
 
     return LaunchDescription(args + [
         rsp_action,
         scene_proc,
-        rviz_node,
+        OpaqueFunction(function=_rviz),
     ])

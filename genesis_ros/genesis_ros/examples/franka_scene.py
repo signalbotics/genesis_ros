@@ -17,6 +17,8 @@ from __future__ import annotations
 import os
 import sys
 
+import numpy as np
+
 import genesis as gs
 
 from genesis_ros import GenesisRosBridge
@@ -24,6 +26,22 @@ from genesis_ros.publishers.clock import ClockPublisher, RealTimeFactorPublisher
 from genesis_ros.publishers.tf import TFPublisher, TFStaticPublisher
 from genesis_ros.publishers.joint_state import JointStatePublisher
 from genesis_ros.control.shm_bridge import register_shm_bridge
+
+
+# Panda "ready" pose: arm in a relaxed bent configuration with the
+# gripper open. Gazebo's gz_ros2_control demo uses essentially the same
+# values; using them here means the arm holds against gravity from t=0
+# rather than collapsing while we wait for controller_manager to come up.
+_PANDA_READY_QPOS = np.array(
+    [0.0, -0.785, 0.0, -2.356, 0.0, 1.571, 0.785, 0.04, 0.04],
+    dtype=np.float32,
+)
+_PANDA_KP = np.array(
+    [4500, 4500, 3500, 3500, 2000, 2000, 2000, 100, 100], dtype=np.float32,
+)
+_PANDA_KV = np.array(
+    [450, 450, 350, 350, 200, 200, 200, 10, 10], dtype=np.float32,
+)
 
 
 # Prefer the system asset location from the genesis-world-assets .deb,
@@ -73,6 +91,20 @@ def main(argv=None):
         urdf_xml = fh.read()
     franka = scene.add_entity(gs.morphs.URDF(file=urdf_path, pos=(0.0, 0.0, 0.0), fixed=True))
     scene.build()
+
+    # Hold the ready pose against gravity from the first tick. Without
+    # this the arm collapses for the ~1-2 s before controller_manager
+    # activates the joint_trajectory_controller. Same idea as Gazebo's
+    # JointPositionController initial-pose / hold mode.
+    n_dofs = int(franka.n_dofs)
+    qpos = _PANDA_READY_QPOS[: n_dofs]
+    kp   = _PANDA_KP[: n_dofs]
+    kv   = _PANDA_KV[: n_dofs]
+    dofs = tuple(range(n_dofs))
+    franka.set_dofs_kp(kp)
+    franka.set_dofs_kv(kv)
+    franka.set_qpos(qpos)
+    franka.control_dofs_position(qpos, dofs)
 
     bridge = GenesisRosBridge(scene, node_name="genesis_bridge", use_sim_time=True)
     bridge.register_entity(franka, name="franka", urdf_xml=urdf_xml)

@@ -1,0 +1,38 @@
+planning_plugins:
+  - ompl_interface/OMPLPlanner
+
+request_adapters:
+  - default_planning_request_adapters/ResolveConstraintFrames
+  - default_planning_request_adapters/ValidateWorkspaceBounds
+  - default_planning_request_adapters/CheckStartStateBounds
+  - default_planning_request_adapters/CheckStartStateCollision
+
+# Tolerate joint values up to this many radians outside the URDF
+# limits. Jazzy's CheckStartStateBounds adapter consults this and
+# clamps within the margin instead of aborting. (Jazzy does not ship
+# the FixStartStateBounds adapter -- only the Check variants exist.)
+# Genesis does not enforce hard joint limits, so the bridge can
+# leave joints just past their limits between trajectories.
+start_state_max_bounds_error: 0.1
+
+response_adapters:
+  - default_planning_response_adapters/AddTimeOptimalParameterization
+  - default_planning_response_adapters/ValidateSolution
+  - default_planning_response_adapters/DisplayMotionPath
+
+planner_configs:
+  RRTConnectkConfigDefault:
+    type: geometric::RRTConnect
+    range: 0.0
+  RRTstarkConfigDefault:
+    type: geometric::RRTstar
+    range: 0.0
+    goal_bias: 0.05
+
+panda_arm:
+  planner_configs:
+    - RRTConnectkConfigDefault
+    - RRTstarkConfigDefault
+  default_planner_config: RRTConnectkConfigDefault
+  projection_evaluator: joints(panda_joint1, panda_joint2)
+  longest_valid_segment_fraction: 0.005

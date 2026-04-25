@@ -16,7 +16,7 @@ from launch.actions import (
     OpaqueFunction,
     RegisterEventHandler,
 )
-from launch.event_handlers import OnProcessExit
+from launch.event_handlers import OnProcessExit, OnProcessStart
 from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
@@ -197,12 +197,22 @@ def generate_launch_description():
     )
 
     # Spawners chained via OnProcessExit for deterministic ordering.
+    # --controller-manager-timeout / --switch-timeout are bumped past
+    # the 5s default so containers without RT scheduling don't time
+    # out the activation switch.
+    _spawner_extra_args = [
+        "--controller-manager-timeout", "30",
+        "--switch-timeout", "30",
+    ]
     jsb_spawner = Node(
         package="controller_manager",
         executable="spawner",
         name="jsb_spawner",
         namespace="franka",
-        arguments=["joint_state_broadcaster", "-c", "/franka/controller_manager"],
+        arguments=[
+            "joint_state_broadcaster",
+            "-c", "/franka/controller_manager",
+        ] + _spawner_extra_args,
         output="screen",
     )
     jtc_spawner = Node(
@@ -210,16 +220,25 @@ def generate_launch_description():
         executable="spawner",
         name="jtc_spawner",
         namespace="franka",
-        arguments=["joint_trajectory_controller", "-c", "/franka/controller_manager"],
+        arguments=[
+            "joint_trajectory_controller",
+            "-c", "/franka/controller_manager",
+        ] + _spawner_extra_args,
         output="screen",
     )
 
-    jsb_after_scene = RegisterEventHandler(
-        event_handler=OnProcessExit(
-            target_action=scene_proc,
-            on_exit=[jsb_spawner],
+    # Spawn joint_state_broadcaster as soon as controller_manager comes
+    # up. Originally this was gated on OnProcessExit(scene_proc), but
+    # the scene runs bridge.spin() forever, so the spawner never fired
+    # and no controllers were loaded.
+    jsb_after_cm = RegisterEventHandler(
+        event_handler=OnProcessStart(
+            target_action=controller_manager,
+            on_start=[jsb_spawner],
         )
     )
+    # Chain jtc after jsb finishes successfully (spawner processes exit
+    # immediately once their controller has been activated).
     jtc_after_jsb = RegisterEventHandler(
         event_handler=OnProcessExit(
             target_action=jsb_spawner,
@@ -227,21 +246,52 @@ def generate_launch_description():
         )
     )
 
-    rviz_node = Node(
-        package="rviz2",
-        executable="rviz2",
-        name="rviz2",
-        output="screen",
-        arguments=["-d", LaunchConfiguration("rviz_config")],
-        parameters=[{"use_sim_time": LaunchConfiguration("use_sim_time")}],
-        condition=IfCondition(LaunchConfiguration("rviz")),
-    )
+    def _rviz(context, *_a, **_kw):
+        if LaunchConfiguration("rviz").perform(context).lower() not in ("1", "true"):
+            return []
+        from genesis_ros.launch_utils import resolve_rviz_config
+        cfg = resolve_rviz_config(
+            LaunchConfiguration("rviz_config").perform(context)
+        )
+        # Load robot_description (URDF) + robot_description_semantic
+        # (SRDF) as rviz2's own parameters so MoveIt's MotionPlanning
+        # RDFLoader (which queries the rviz2 node, not move_group)
+        # finds them locally instead of timing out on a /robot_*
+        # topic subscription in the wrong namespace.
+        base_urdf = LaunchConfiguration("urdf_path").perform(context)
+        xacro_path = LaunchConfiguration("xacro_path").perform(context)
+        hw = LaunchConfiguration("hardware").perform(context) or "shm"
+        rviz_params = [
+            {"use_sim_time": LaunchConfiguration("use_sim_time")},
+        ]
+        if os.path.isfile(base_urdf) and os.path.isfile(xacro_path):
+            urdf = _process_xacro(xacro_path, mappings={
+                "base_urdf": base_urdf,
+                "hardware": hw,
+                "robot_name": "franka",
+                "commands_topic": "/franka/joint_commands",
+                "states_topic": "/franka/joint_states",
+            })
+            urdf = _rewrite_urdf_meshes(urdf, base_urdf)
+            rviz_params.append({"robot_description": urdf})
+        srdf_path = os.path.join(_pkg_share(), "config", "moveit", "panda.srdf")
+        if os.path.isfile(srdf_path):
+            with open(srdf_path, "r") as fh:
+                rviz_params.append({"robot_description_semantic": fh.read()})
+        return [Node(
+            package="rviz2",
+            executable="rviz2",
+            name="rviz2",
+            output="screen",
+            arguments=["-d", cfg],
+            parameters=rviz_params,
+        )]
 
     return LaunchDescription(args + [
         rsp_action,
         scene_proc,
         controller_manager,
-        jsb_after_scene,
+        jsb_after_cm,
         jtc_after_jsb,
-        rviz_node,
+        OpaqueFunction(function=_rviz),
     ])

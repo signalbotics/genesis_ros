@@ -1,0 +1,22 @@
+# Tells MoveIt which ros2_control controller(s) to use for execution.
+# Controller name MUST match the controller spawned by franka.launch.py
+# (joint_trajectory_controller, namespaced under /franka).
+moveit_simple_controller_manager:
+  controller_names:
+    - joint_trajectory_controller
+
+  joint_trajectory_controller:
+    type: FollowJointTrajectory
+    action_ns: follow_joint_trajectory
+    default: true
+    # Resolves to /franka/joint_trajectory_controller/follow_joint_trajectory
+    joints:
+      - panda_joint1
+      - panda_joint2
+      - panda_joint3
+      - panda_joint4
+      - panda_joint5
+      - panda_joint6
+      - panda_joint7
+
+moveit_controller_manager: moveit_simple_controller_manager/MoveItSimpleControllerManager
