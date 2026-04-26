@@ -81,6 +81,16 @@ setup(
             "drone_demo = genesis_ros.examples.drone_scene:main",
             "sensor_demo = genesis_ros.examples.sensor_demo:main",
             "franka_moveit_test = genesis_ros.examples.franka_moveit_test:main",
+            # Pure-Genesis RL pipelines (no ROS in the loop). Train offline
+            # with these; deploy a trained policy via the matching `*_demo`
+            # scene + a policy loader. Requires rsl-rl-lib>=5.0.0.
+            "go2_train = genesis_ros.examples.locomotion.go2_train:main",
+            "go2_eval = genesis_ros.examples.locomotion.go2_eval:main",
+            "go2_backflip = genesis_ros.examples.locomotion.go2_backflip:main",
+            "hover_train = genesis_ros.examples.drone_rl.hover_train:main",
+            "hover_eval = genesis_ros.examples.drone_rl.hover_eval:main",
+            "grasp_train = genesis_ros.examples.manipulation_rl.grasp_train:main",
+            "grasp_eval = genesis_ros.examples.manipulation_rl.grasp_eval:main",
         ],
     },
 )

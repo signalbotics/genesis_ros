@@ -52,6 +52,17 @@ override_dh_auto_install:
 	# Install genesis-world from the staged copy.
 	$(VENV)/bin/pip install -c $(CURDIR)/debian/.pip-constraints.txt $(SRC_STAGE)
 	rm -rf $(SRC_STAGE)
+	# RL training stack used by go2_train / hover_train / grasp_train console
+	# scripts. Bundled so `ros2 run genesis_ros *_train` works out of the box.
+	# rsl-rl-lib supports three logger backends (tensorboard / wandb / neptune)
+	# but declares none as hard deps -- ship all three. tensordict is needed
+	# by the *_env.py observation containers.
+	$(VENV)/bin/pip install -c $(CURDIR)/debian/.pip-constraints.txt \
+		"rsl-rl-lib>=5.0.0" \
+		tensordict \
+		tensorboard \
+		wandb \
+		neptune-client
 	rm -f $(CURDIR)/debian/.pip-constraints.txt
 	# Strip the absolute build path out of the venv so it runs from /opt/genesis.
 	$(VENV)/bin/python -c "import subprocess,sys; subprocess.check_call([sys.executable, '-m', 'pip', 'check'])" || true
