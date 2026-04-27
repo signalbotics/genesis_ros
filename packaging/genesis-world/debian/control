@@ -17,7 +17,13 @@ Depends:
  libvulkan1,
  libegl1,
  libgomp1
-Recommends: genesis-world-assets, nvidia-driver-550 | nvidia-driver-555 | nvidia-driver-560 | nvidia-driver-570
+Recommends: genesis-world-assets
+# NOTE: We deliberately do NOT Recommend nvidia-driver-* here. Inside
+# Docker / dev containers the host driver is injected by the NVIDIA
+# Container Toolkit and pulling a driver deb fails on overlay-fs with
+# "Invalid cross-device link". On bare-metal hosts users install the
+# driver from their own apt source. Either way, recommending it does
+# more harm than good.
 Description: Genesis physics simulator (vendored Python environment)
  Genesis is a GPU-accelerated physics engine and rendering platform for
  robotics and embodied-AI research. This package ships a self-contained

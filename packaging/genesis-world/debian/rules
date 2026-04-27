@@ -96,3 +96,9 @@ override_dh_dwz:
 
 override_dh_fixperms:
 	dh_fixperms -Xgenesis/venv/bin
+
+override_dh_builddeb:
+	# xz -9 over the default zstd shaves ~10-15% off the .deb file size.
+	# Slower install (single-threaded decompression at apt time) but no
+	# functional change — installed content is identical.
+	dh_builddeb -- -Zxz -z9

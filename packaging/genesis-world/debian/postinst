@@ -6,6 +6,20 @@ case "$1" in
         if [ -x /opt/genesis/venv/bin/python ]; then
             /opt/genesis/venv/bin/python -m compileall -q /opt/genesis/venv/lib || true
         fi
+        # taichi/quadrants probes for an unversioned `libcuda.so` to find
+        # the CUDA driver. The NVIDIA Container Toolkit injects only the
+        # versioned form (libcuda.so.1, libcuda.so.<version>) at container
+        # start, so without this symlink Genesis fails to init the GPU
+        # backend with "Arch=cuda is not supported". On bare-metal hosts
+        # the system's libnvidia-compute deb already provides this link;
+        # the test below skips silently in that case.
+        for dir in /usr/lib/x86_64-linux-gnu /usr/lib64; do
+            if [ -e "$dir/libcuda.so.1" ] && [ ! -e "$dir/libcuda.so" ]; then
+                ln -s libcuda.so.1 "$dir/libcuda.so"
+                ldconfig 2>/dev/null || true
+                break
+            fi
+        done
         ;;
 esac
 #DEBHELPER#
