@@ -107,9 +107,21 @@ class BackflipEnv(Go2Env):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("-e", "--exp_name", type=str, default="single")
+    parser.add_argument(
+        "--ckpt",
+        type=int,
+        default=None,
+        help=(
+            "If set, load the rsl_rl checkpoint logs/<exp_name>/model_<ckpt>.pt "
+            "(produced by go2_backflip_train). Default: load the upstream "
+            "TorchScript file ./backflip/<exp_name>.pt."
+        ),
+    )
+    parser.add_argument("--cpu", action="store_true",
+                        help="Force CPU backend (default: GPU).")
     args = parser.parse_args()
 
-    gs.init()
+    gs.init(backend=gs.cpu if args.cpu else gs.gpu)
 
     env_cfg, obs_cfg, reward_cfg, command_cfg = get_cfgs()
 
@@ -120,6 +132,12 @@ def main():
     else:
         raise RuntimeError
 
+    if args.ckpt is not None:
+        # Training horizon for the trainer matches eval; loosen termination
+        # so the loaded policy isn't truncated mid-flip during playback.
+        env_cfg["termination_if_pitch_greater_than"] = 1e6
+        env_cfg["termination_if_roll_greater_than"] = 1e6
+
     env = BackflipEnv(
         num_envs=1,
         env_cfg=env_cfg,
@@ -129,14 +147,52 @@ def main():
         show_viewer=True,
     )
 
-    policy = torch.jit.load(f"./backflip/{args.exp_name}.pt")
-    policy.to(device=gs.device)
+    if args.ckpt is None:
+        # Upstream-style: TorchScript flat file produced by their separate
+        # research repo and downloaded to ./backflip/<exp_name>.pt.
+        policy = torch.jit.load(f"./backflip/{args.exp_name}.pt")
+        policy.to(device=gs.device)
+        obs, _ = env.reset()
+        with torch.no_grad():
+            while True:
+                actions = policy(obs)
+                obs, rews, dones, infos = env.step(actions)
+    else:
+        # Trainer-style: load via rsl_rl OnPolicyRunner (same as go2_eval).
+        import os
+        import pickle
 
-    obs, _ = env.reset()
-    with torch.no_grad():
-        while True:
-            actions = policy(obs)
-            obs, rews, dones, infos = env.step(actions)
+        from rsl_rl.runners import OnPolicyRunner
+
+        # Wrap step/reset/get_observations so the runner sees a TensorDict
+        # like the trainer expects. Mirrors BackflipTrainEnv's shim.
+        from tensordict import TensorDict
+
+        from .go2_env import Go2Env
+
+        _orig_get_obs = env.get_observations
+        _num_envs = env.num_envs
+
+        def _get_obs_dict():
+            _orig_get_obs()  # populates env.obs_buf
+            return TensorDict({"policy": env.obs_buf}, batch_size=[_num_envs])
+
+        env.get_observations = _get_obs_dict
+        env.step = lambda actions, _e=env: Go2Env.step(_e, actions)
+        env.reset = lambda _e=env: Go2Env.reset(_e)
+
+        log_dir = f"logs/{args.exp_name}"
+        with open(os.path.join(log_dir, "cfgs.pkl"), "rb") as fh:
+            _, _, _, _, train_cfg = pickle.load(fh)
+        runner = OnPolicyRunner(env, train_cfg, log_dir, device=gs.device)
+        runner.load(os.path.join(log_dir, f"model_{args.ckpt}.pt"))
+        policy = runner.get_inference_policy(device=gs.device)
+
+        obs_dict = env.reset()
+        with torch.no_grad():
+            while True:
+                actions = policy(obs_dict)
+                obs_dict, rews, dones, infos = env.step(actions)
 
 
 if __name__ == "__main__":

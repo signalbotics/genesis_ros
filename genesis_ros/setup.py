@@ -87,6 +87,7 @@ setup(
             "go2_train = genesis_ros.examples.locomotion.go2_train:main",
             "go2_eval = genesis_ros.examples.locomotion.go2_eval:main",
             "go2_backflip = genesis_ros.examples.locomotion.go2_backflip:main",
+            "go2_backflip_train = genesis_ros.examples.locomotion.go2_backflip_train:main",
             "hover_train = genesis_ros.examples.drone_rl.hover_train:main",
             "hover_eval = genesis_ros.examples.drone_rl.hover_eval:main",
             "grasp_train = genesis_ros.examples.manipulation_rl.grasp_train:main",

@@ -28,4 +28,5 @@ packaging/*/debian/tmp/
 .idea/
 *.swp
 *.deb
+**venv**
 .DS_Store
