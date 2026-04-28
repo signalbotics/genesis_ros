@@ -113,6 +113,17 @@ ros2 run genesis_ros go2_train -B 4096 --max_iterations 1000
 ros2 run genesis_ros go2_eval  -e go2-walking --ckpt 1000
 ros2 run genesis_ros go2_backflip                  # advanced reward shaping
 
+# Locomotion — Unitree G1 / H1 humanoid (IsaacLab Isaac-Velocity-{Flat,Rough}-{G1,H1}-v0 ports)
+ros2 run genesis_ros g1_train -e flat                          # flat-ground velocity tracking
+ros2 run genesis_ros g1_train -e rough                         # rough-terrain w/ heightscan + curriculum
+ros2 run genesis_ros g1_train --task Isaac-Velocity-Rough-G1-v0  # IsaacLab task name also accepted
+ros2 run genesis_ros g1_train -e rough --resume                # continue from latest checkpoint
+ros2 run genesis_ros g1_train -e rough --checkpoint 500        # continue from model_500.pt
+ros2 run genesis_ros g1_eval  -e flat                          # opens viewer, replays latest ckpt
+ros2 run genesis_ros h1_train -e flat                          # H1 (19 DOF) flat
+ros2 run genesis_ros h1_train -e rough
+ros2 run genesis_ros h1_eval  -e rough --checkpoint latest
+
 # Drone — quadrotor hover
 ros2 run genesis_ros hover_train
 ros2 run genesis_ros hover_eval
@@ -122,8 +133,22 @@ ros2 run genesis_ros grasp_train
 ros2 run genesis_ros grasp_eval
 ```
 
-Checkpoints land in `./logs/<exp_name>/`. Eval scripts open the viewer
-and replay the policy.
+Checkpoints land in `./logs/<exp_name>/` (default `<robot>-<env>`, override
+with `-n`). Eval scripts open the viewer and replay the policy. The
+humanoid trainers accept the standard IsaacLab/rsl_rl flag set:
+`-e/--env/--task {flat,rough}`, `-n/--exp_name`, `-B/--num_envs`,
+`--seed`, `--max_iterations`, `--logger {tensorboard,wandb,neptune}`,
+`--resume`, `--load_run`, `--checkpoint {<int>|latest|<path>}`,
+`--headless`, `--show_viewer`.
+
+The G1/H1 envs port the manager-based velocity-tracking stack from
+`isaaclab_tasks/.../velocity/config/{g1,h1}/` — same reward weights,
+joint-group filters, command ranges, and PD gains. Rough variant
+includes a procedural terrain generator (pyramid stairs, boxes, random
+rough, slopes), a per-env `(level, type)` curriculum, and a 187-ray
+yaw-aligned height-scan observation. Robot URDFs are vendored from
+Unitree (BSD-3) into the `genesis-world-assets` deb at
+`/opt/genesis/assets/urdf/{g1,h1}/`.
 
 ## License
 

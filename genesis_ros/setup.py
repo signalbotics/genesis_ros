@@ -88,6 +88,12 @@ setup(
             "go2_eval = genesis_ros.examples.locomotion.go2_eval:main",
             "go2_backflip = genesis_ros.examples.locomotion.go2_backflip:main",
             "go2_backflip_train = genesis_ros.examples.locomotion.go2_backflip_train:main",
+            # Humanoid locomotion (G1, H1). Pass `-e flat` or `-e rough` to
+            # select the env (mirrors Isaac-Velocity-{Flat,Rough}-{G1,H1}-v0).
+            "g1_train = genesis_ros.examples.locomotion.g1.train:main",
+            "g1_eval  = genesis_ros.examples.locomotion.g1.eval:main",
+            "h1_train = genesis_ros.examples.locomotion.h1.train:main",
+            "h1_eval  = genesis_ros.examples.locomotion.h1.eval:main",
             "hover_train = genesis_ros.examples.drone_rl.hover_train:main",
             "hover_eval = genesis_ros.examples.drone_rl.hover_eval:main",
             "grasp_train = genesis_ros.examples.manipulation_rl.grasp_train:main",
