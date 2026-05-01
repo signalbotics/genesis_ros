@@ -80,6 +80,7 @@ setup(
             "shadow_hand_demo = genesis_ros.examples.shadow_hand_scene:main",
             "drone_demo = genesis_ros.examples.drone_scene:main",
             "sensor_demo = genesis_ros.examples.sensor_demo:main",
+            "usd_scene = genesis_ros.examples.usd_scene:main",
             "franka_moveit_test = genesis_ros.examples.franka_moveit_test:main",
             # Pure-Genesis RL pipelines (no ROS in the loop). Train offline
             # with these; deploy a trained policy via the matching `*_demo`
