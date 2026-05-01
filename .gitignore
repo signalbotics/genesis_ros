@@ -19,9 +19,13 @@ packaging/*/debian/files
 packaging/*/debian/.debhelper/
 packaging/*/debian/debhelper-build-stamp
 packaging/*/debian/genesis-world/
+packaging/*/debian/genesis-world-lite/
 packaging/*/debian/genesis-world-assets/
 packaging/*/debian/ros-jazzy-genesis-ros/
 packaging/*/debian/tmp/
+packaging/*/debian/*.debhelper.log
+packaging/*.buildinfo
+packaging/*.changes
 
 # Editors
 .vscode/
