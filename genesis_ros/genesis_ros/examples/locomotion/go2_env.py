@@ -51,7 +51,7 @@ class Go2Env:
                 camera_fov=40,
                 max_FPS=int(1.0 / self.dt),
             ),
-            vis_options=gs.options.VisOptions(rendered_envs_idx=[0]),
+            vis_options=gs.options.VisOptions(rendered_envs_idx=list(range(num_envs))),
             show_viewer=show_viewer,
         )
 
@@ -73,7 +73,7 @@ class Go2Env:
         )
 
         # build
-        self.scene.build(n_envs=num_envs)
+        self.scene.build(n_envs=num_envs, env_spacing=(1.5, 1.5))
 
         # names to indices
         self.motors_dof_idx = torch.tensor(

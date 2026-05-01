@@ -94,7 +94,7 @@ class HoverEnv:
         self.drone = self.scene.add_entity(gs.morphs.Drone(file="urdf/drones/cf2x.urdf"))
 
         # build scene
-        self.scene.build(n_envs=num_envs)
+        self.scene.build(n_envs=num_envs, env_spacing=(2.0, 2.0))
 
         # prepare reward functions and multiply reward scales by dt
         self.reward_functions, self.episode_sums = dict(), dict()

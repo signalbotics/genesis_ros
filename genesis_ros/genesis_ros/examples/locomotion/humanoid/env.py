@@ -184,7 +184,7 @@ class HumanoidLocomotionEnv:
                 camera_fov=40,
                 max_FPS=int(1.0 / self.dt),
             ),
-            vis_options=gs.options.VisOptions(rendered_envs_idx=[0]),
+            vis_options=gs.options.VisOptions(rendered_envs_idx=list(range(cfg.num_envs))),
             show_viewer=show_viewer,
         )
 
@@ -202,7 +202,7 @@ class HumanoidLocomotionEnv:
             gs.morphs.URDF(file=rc.urdf_path, pos=rc.base_init_pos, quat=rc.base_init_quat),
         )
 
-        self.scene.build(n_envs=self.num_envs)
+        self.scene.build(n_envs=self.num_envs, env_spacing=(2.0, 2.0))
 
         # ---- DOF/body indices ----
         self.motors_dof_idx = torch.tensor(
