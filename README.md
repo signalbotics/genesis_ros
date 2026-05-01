@@ -85,7 +85,12 @@ sudo apt install ./packaging/out/genesis-world_*.deb \
 source /opt/ros/jazzy/setup.bash
 ros2 run genesis_ros franka_demo        # Franka arm with GUI
 ros2 run genesis_ros go2_demo           # Unitree Go2 quadruped with GUI
+ros2 run genesis_ros anymal_demo        # ANYbotics ANYmal-C
+ros2 run genesis_ros kuka_demo          # KUKA iiwa
+ros2 run genesis_ros shadow_hand_demo   # Shadow Hand (24-DOF)
+ros2 run genesis_ros drone_demo         # Crazyflie quadrotor
 ros2 run genesis_ros turtlebot_demo     # Diff-drive base
+ros2 run genesis_ros sensor_demo        # IMU + LiDAR + RGB + depth + scan publishers
 ros2 run genesis_ros genesis_bridge     # Empty scene (just /clock)
 ```
 
@@ -96,6 +101,50 @@ Environment knobs for the demos:
 | `GENESIS_HEADLESS=1` | Don't open the viewer |
 | `GENESIS_VIEWER_FPS=<n>` | Cap the viewer at N Hz (default: uncapped) |
 | `TURTLEBOT_URDF=/path/to/urdf` | Use your own turtlebot URDF (fallback is a box) |
+
+## MoveIt 2
+
+The Franka demo wires up a `controller_manager` + `joint_trajectory_controller`
+through the bundled `genesis_ros2_control` shm bridge, so MoveIt 2 talks to
+the simulated arm exactly like real hardware.
+
+```bash
+# Terminal 1: launch the Franka in Genesis + MoveIt + RViz
+ros2 launch genesis_ros franka_moveit.launch.py
+
+# Terminal 2: headless smoke test — sends a joint-goal to /franka/move_action
+ros2 run genesis_ros franka_moveit_test          # default target
+ros2 run genesis_ros franka_moveit_test ready    # 'ready' pose
+ros2 run genesis_ros franka_moveit_test extended # 'extended' pose
+```
+
+Plan + execution outcomes print to stdout so the smoke test runs in CI
+without RViz.
+
+## USD scenes
+
+`usd_scene` loads any physics-tagged USD asset that ships with the
+`genesis-world-assets` deb (or any you drop into `/opt/genesis/assets/usd/`):
+
+```bash
+ros2 run genesis_ros usd_scene --list             # discovered asset aliases
+ros2 run genesis_ros usd_scene -a g1              # Unitree G1
+ros2 run genesis_ros usd_scene -a anymal_d        # ANYmal-D
+ros2 run genesis_ros usd_scene -a hospital --no_plane
+ros2 run genesis_ros usd_scene -a warehouse --no_plane
+```
+
+Aliases come from a recursive walk of `/opt/genesis/assets/usd/` — drop a
+USD in `robots/`, `envs/`, `props/`, etc. and it shows up automatically.
+Visual-only USDZ scenes are listed but flagged (Genesis's `add_stage`
+requires UsdPhysics schemas).
+
+To pull the IsaacLab Nucleus mirror locally (no Omniverse account
+required), see the helper scripts in [`scripts/`](scripts/) —
+`download_isaac_assets.sh` fetches ~70 robots/envs/props from the public S3
+bucket, then `resolve_usd_refs.py` walks each USD and pulls every `@…@`
+reference so scenes like Hospital and Warehouse render with all their
+sub-assets.
 
 ## Reinforcement learning
 
