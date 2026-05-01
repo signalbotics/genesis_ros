@@ -1,0 +1,58 @@
+#!/usr/bin/make -f
+# Lite variant: same vendored-venv layout as genesis-world, but skip torch
+# and the RL training stack. Staging dir is debian/genesis-world-lite/ to
+# match the binary Package name in control.lite.
+
+export DH_VERBOSE = 1
+
+PREFIX      := /opt/genesis
+VENV        := $(CURDIR)/debian/genesis-world-lite$(PREFIX)/venv
+REPO_ROOT   := $(GENESIS_SRC)
+SRC_STAGE   := $(CURDIR)/debian/.genesis-src
+
+%:
+	dh $@
+
+override_dh_auto_configure:
+override_dh_auto_build:
+override_dh_auto_test:
+
+override_dh_auto_install:
+	python3.12 -m venv --copies $(VENV)
+	$(VENV)/bin/pip install --upgrade pip wheel setuptools
+	# Pin numpy < 2 for ROS 2 Jazzy ABI compatibility (cv_bridge etc).
+	$(VENV)/bin/pip install "numpy<2"
+	echo "numpy<2" > $(CURDIR)/debian/.pip-constraints.txt
+	# Stage Genesis source into a writable dir.
+	rm -rf $(SRC_STAGE)
+	mkdir -p $(SRC_STAGE)
+	cp -a $(REPO_ROOT)/. $(SRC_STAGE)/
+	# Install genesis-world only — NO torch, NO rsl-rl-lib / tensordict /
+	# tensorboard / wandb / neptune-client. Users opt in via pip after
+	# install (the postinst prints the exact command).
+	$(VENV)/bin/pip install -c $(CURDIR)/debian/.pip-constraints.txt "$(SRC_STAGE)[usd]"
+	rm -rf $(SRC_STAGE)
+	rm -f $(CURDIR)/debian/.pip-constraints.txt
+	$(VENV)/bin/python -c "import subprocess,sys; subprocess.check_call([sys.executable, '-m', 'pip', 'check'])" || true
+	# Rewrite shebangs from build dir to /opt/genesis/venv.
+	grep -rlI "$(VENV)" $(VENV)/bin 2>/dev/null | xargs -r sed -i "s|$(VENV)|$(PREFIX)/venv|g"
+	install -Dm755 $(CURDIR)/wrapper/genesis \
+	    $(CURDIR)/debian/genesis-world-lite/usr/bin/genesis
+	install -d $(CURDIR)/debian/genesis-world-lite/usr/lib/python3/dist-packages
+	echo "import sys; sys.path.insert(0, '/opt/genesis/venv/lib/python3.12/site-packages')" > \
+	    $(CURDIR)/debian/genesis-world-lite/usr/lib/python3/dist-packages/genesis-venv.pth
+
+override_dh_shlibdeps:
+	dh_shlibdeps -Xgenesis/venv
+
+override_dh_strip:
+	dh_strip -Xgenesis/venv
+
+override_dh_dwz:
+	dh_dwz -Xgenesis/venv
+
+override_dh_fixperms:
+	dh_fixperms -Xgenesis/venv/bin
+
+override_dh_builddeb:
+	dh_builddeb -- -Zxz -z9

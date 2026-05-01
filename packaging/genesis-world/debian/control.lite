@@ -1,0 +1,30 @@
+Source: genesis-world
+Section: science
+Priority: optional
+Maintainer: Genesis Packaging <packaging@example.com>
+Build-Depends: debhelper-compat (= 13), python3.12, python3.12-venv, python3-pip
+Standards-Version: 4.6.2
+Homepage: https://github.com/Genesis-Embodied-AI/Genesis
+
+Package: genesis-world-lite
+Architecture: amd64
+Depends:
+ ${misc:Depends},
+ python3.12,
+ libpython3.12-stdlib,
+ libgl1,
+ libglib2.0-0,
+ libvulkan1,
+ libegl1,
+ libgomp1
+Recommends: genesis-world-assets
+Conflicts: genesis-world
+Replaces: genesis-world
+Provides: genesis-world
+Description: Genesis physics simulator (vendored env, no torch / RL stack)
+ Lite variant of genesis-world: ships the engine + taichi + numpy in a
+ vendored Python venv under /opt/genesis/venv, but NOT torch or the RL
+ training stack (rsl-rl-lib, tensordict, tensorboard, ...). The postinst
+ prints the exact pip command to install them after deb install. Pick
+ this over genesis-world if you want a smaller download (~500 MB vs
+ ~2.8 GB) or want to choose your own torch / CUDA build.

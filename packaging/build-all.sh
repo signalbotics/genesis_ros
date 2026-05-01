@@ -34,6 +34,10 @@ build_genesis_world() {
     echo "[build-all] === genesis-world ==="
     "$HERE/genesis-world/build.sh"
 }
+build_genesis_world_lite() {
+    echo "[build-all] === genesis-world-lite ==="
+    "$HERE/genesis-world/build-lite.sh"
+}
 build_assets() {
     echo "[build-all] === genesis-world-assets ==="
     "$HERE/genesis-world-assets/build.sh"
@@ -50,6 +54,7 @@ build_ros2_control() {
 case "$target" in
     all)                   build_genesis_world; build_assets; build_ros; build_ros2_control ;;
     genesis-world)         build_genesis_world ;;
+    genesis-world-lite)    build_genesis_world_lite ;;
     genesis-world-assets)  build_assets ;;
     ros|ros-jazzy-genesis-ros) build_ros ;;
     ros2-control|ros-jazzy-genesis-ros2-control) build_ros2_control ;;

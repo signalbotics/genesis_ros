@@ -4,7 +4,8 @@ Builds three `.deb`s from a Genesis engine checkout plus this repo:
 
 | Package | Arch | Contents |
 |---|---|---|
-| `genesis-world` | `amd64` | Vendored Python 3.12 venv at `/opt/genesis/venv` with Genesis + `torch` (CUDA 13). Wrapper at `/usr/bin/genesis` launches the venv's interpreter. |
+| `genesis-world` | `amd64` | Vendored Python 3.12 venv at `/opt/genesis/venv` with Genesis + `torch` (CUDA 13) + RL stack (`rsl-rl-lib`, `tensordict`, `tensorboard`, `wandb`, `neptune-client`). Wrapper at `/usr/bin/genesis` launches the venv's interpreter. |
+| `genesis-world-lite` | `amd64` | Same layout as `genesis-world` but **without** torch and the RL stack (~500 MB vs ~2.8 GB). `Conflicts/Replaces/Provides: genesis-world`. Postinst prints the exact `pip install` command to opt in to torch + RL deps. Pick this if you want to choose your own torch / CUDA build. |
 | `genesis-world-assets` | `all` | `genesis/assets/` (URDFs, meshes, textures) under `/opt/genesis/assets/`. |
 | `ros-jazzy-genesis-ros` | `amd64` | The `genesis_ros` ROS 2 package (generated via `bloom`). `Depends: genesis-world`. |
 
@@ -23,6 +24,7 @@ sha is from *this* repo's HEAD. Genesis's own version comes from its
 ```bash
 ./build-in-docker.sh            # builds all 3 .debs → ./out/
 ./build-in-docker.sh genesis-world       # just one package
+./build-in-docker.sh genesis-world-lite  # lite variant (no torch / RL stack)
 ./build-in-docker.sh ros                 # just the ROS bridge
 ```
 
@@ -57,6 +59,10 @@ sudo apt install ./out/genesis-world_*.deb \
                  ./out/ros-jazzy-genesis-ros_*.deb
 ```
 
+For the lite variant, swap `genesis-world_*.deb` for `genesis-world-lite_*.deb`
+(they Conflict — pick one). After install, the postinst prints the exact
+`sudo /opt/genesis/venv/bin/pip install …` line to add torch + the RL stack.
+
 `apt install ./file.deb` (not `dpkg -i`) pulls runtime dependencies
 automatically.
 
@@ -86,10 +92,12 @@ packaging/
 ├── build-all.sh                # driver for the native build
 ├── Dockerfile.noble            # builder image definition
 ├── apt-repo/conf/distributions # reprepro config
-├── genesis-world/              # engine + vendored venv
+├── genesis-world/              # engine + vendored venv (full + lite share this tree)
 │   ├── debian/{control,rules,postinst,prerm,copyright}
+│   ├── debian/{control,rules,postinst}.lite   # swapped in by build-lite.sh
 │   ├── wrapper/genesis         # /usr/bin/genesis
-│   └── build.sh
+│   ├── build.sh                # full deb (with torch + RL stack)
+│   └── build-lite.sh           # lite deb (no torch / no RL stack)
 ├── genesis-world-assets/       # URDF + meshes
 │   ├── debian/{control,rules,copyright}
 │   └── build.sh

@@ -1,0 +1,38 @@
+#!/bin/sh
+set -e
+case "$1" in
+    configure)
+        if [ -x /opt/genesis/venv/bin/python ]; then
+            /opt/genesis/venv/bin/python -m compileall -q /opt/genesis/venv/lib || true
+        fi
+        # libcuda.so symlink (see notes in the full deb's postinst).
+        for dir in /usr/lib/x86_64-linux-gnu /usr/lib64; do
+            if [ -e "$dir/libcuda.so.1" ] && [ ! -e "$dir/libcuda.so" ]; then
+                ln -s libcuda.so.1 "$dir/libcuda.so"
+                ldconfig 2>/dev/null || true
+                break
+            fi
+        done
+        # If torch wasn't bundled at build time (lite deb), tell the user
+        # exactly what to run. We don't pip install here so the install
+        # works offline; user opts in once they have network.
+        if [ -x /opt/genesis/venv/bin/python ] \
+           && ! /opt/genesis/venv/bin/python -c "import torch" 2>/dev/null; then
+            cat <<EOF
+
+NOTE: this is a lite genesis-world deb (no torch). To enable Genesis +
+the RL training scripts, run:
+
+    sudo /opt/genesis/venv/bin/pip install torch \\
+        "rsl-rl-lib>=5.0.0" tensordict tensorboard wandb neptune-client
+
+For CPU-only torch (smaller, no CUDA):
+    sudo /opt/genesis/venv/bin/pip install \\
+        --index-url https://download.pytorch.org/whl/cpu torch
+
+EOF
+        fi
+        ;;
+esac
+#DEBHELPER#
+exit 0
