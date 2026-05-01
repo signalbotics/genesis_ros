@@ -236,10 +236,20 @@ class TerrainImporter:
                     r * h_cells : (r + 1) * h_cells,
                     c * w_cells : (c + 1) * w_cells,
                 ] = field
+                # Spawn z = max height in a robot-footprint window around center,
+                # not just the single center cell. Otherwise stairs/boxes that are
+                # taller than the center cell intersect the feet at reset.
+                foot_radius_m = 0.4
+                rad_cells = max(1, int(foot_radius_m / cfg.horizontal_scale))
+                ci, cj = h_cells // 2, w_cells // 2
+                window = field[
+                    max(0, ci - rad_cells): ci + rad_cells + 1,
+                    max(0, cj - rad_cells): cj + rad_cells + 1,
+                ]
                 sub_origins[r, c] = (
                     c * cfg.size[0] + cfg.size[0] / 2.0,
                     r * cfg.size[1] + cfg.size[1] / 2.0,
-                    field[h_cells // 2, w_cells // 2],
+                    float(window.max()),
                 )
 
         self.size = cfg.size
