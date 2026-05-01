@@ -50,7 +50,7 @@ override_dh_auto_install:
 	mkdir -p $(SRC_STAGE)
 	cp -a $(REPO_ROOT)/. $(SRC_STAGE)/
 	# Install genesis-world from the staged copy.
-	$(VENV)/bin/pip install -c $(CURDIR)/debian/.pip-constraints.txt $(SRC_STAGE)
+	$(VENV)/bin/pip install -c $(CURDIR)/debian/.pip-constraints.txt "$(SRC_STAGE)[usd]"
 	rm -rf $(SRC_STAGE)
 	# RL training stack used by go2_train / hover_train / grasp_train console
 	# scripts. Bundled so `ros2 run genesis_ros *_train` works out of the box.
