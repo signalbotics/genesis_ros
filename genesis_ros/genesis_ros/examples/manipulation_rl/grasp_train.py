@@ -11,7 +11,6 @@ except (metadata.PackageNotFoundError, ImportError) as e:
     raise ImportError("Please install 'rsl-rl-lib>=5.0.0'.") from e
 
 from rsl_rl.runners import OnPolicyRunner
-from behavior_cloning import BehaviorCloning
 
 import genesis as gs
 
@@ -191,6 +190,7 @@ def main():
 
     # === runner ===
     if args.stage == "bc":
+        from .behavior_cloning import BehaviorCloning
         teacher_policy = load_teacher_policy(env, rl_train_cfg, args.exp_name)
         runner = BehaviorCloning(env, bc_train_cfg, teacher_policy, device=gs.device)
         runner.learn(num_learning_iterations=args.max_iterations, log_dir=log_dir)

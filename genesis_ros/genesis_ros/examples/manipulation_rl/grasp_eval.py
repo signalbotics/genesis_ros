@@ -16,7 +16,6 @@ from rsl_rl.runners import OnPolicyRunner
 import genesis as gs
 
 from .grasp_env import GraspEnv
-from behavior_cloning import BehaviorCloning
 
 
 def load_rl_policy(env, train_cfg, log_dir):
@@ -36,6 +35,7 @@ def load_rl_policy(env, train_cfg, log_dir):
 
 def load_bc_policy(env, bc_cfg, log_dir):
     """Load behavior cloning policy."""
+    from .behavior_cloning import BehaviorCloning
     bc_runner = BehaviorCloning(env, bc_cfg, None, device=gs.device)
 
     checkpoint_files = [f for f in log_dir.iterdir() if re.match(r"checkpoint_\d+\.pt", f.name)]
